@@ -7,7 +7,8 @@ import {
   Package,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Inbox
 } from 'lucide-react';
 import './Orders.css';
 
@@ -23,15 +24,6 @@ interface Order {
   date: string;
 }
 
-const demoOrders: Order[] = [
-  { id: '#ORD-1234', customer: 'أحمد محمد علي', email: 'ahmed@email.com', phone: '0501234567', items: 2, total: 5998, status: 'delivered', paymentMethod: 'بطاقة ائتمان', date: '2024-01-15' },
-  { id: '#ORD-1235', customer: 'سارة أحمد', email: 'sara@email.com', phone: '0551234567', items: 1, total: 8999, status: 'processing', paymentMethod: 'تحويل بنكي', date: '2024-01-15' },
-  { id: '#ORD-1236', customer: 'محمد علي حسن', email: 'mohamed@email.com', phone: '0561234567', items: 3, total: 2997, status: 'shipped', paymentMethod: 'الدفع عند الاستلام', date: '2024-01-14' },
-  { id: '#ORD-1237', customer: 'فاطمة حسن', email: 'fatima@email.com', phone: '0571234567', items: 1, total: 4299, status: 'pending', paymentMethod: 'بطاقة ائتمان', date: '2024-01-14' },
-  { id: '#ORD-1238', customer: 'خالد عبدالله', email: 'khaled@email.com', phone: '0581234567', items: 2, total: 6398, status: 'delivered', paymentMethod: 'Apple Pay', date: '2024-01-13' },
-  { id: '#ORD-1239', customer: 'نورة سعود', email: 'noura@email.com', phone: '0591234567', items: 1, total: 999, status: 'cancelled', paymentMethod: 'بطاقة ائتمان', date: '2024-01-13' },
-];
-
 const statusConfig = {
   pending: { label: 'قيد الانتظار', icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
   processing: { label: 'قيد التجهيز', icon: Package, color: '#3b82f6', bg: '#dbeafe' },
@@ -41,7 +33,7 @@ const statusConfig = {
 };
 
 const Orders: React.FC = () => {
-  const [orders] = useState<Order[]>(demoOrders);
+  const [orders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -64,6 +56,14 @@ const Orders: React.FC = () => {
     });
   };
 
+  // حساب الإحصائيات الحقيقية
+  const stats = {
+    pending: orders.filter(o => o.status === 'pending').length,
+    processing: orders.filter(o => o.status === 'processing').length,
+    shipped: orders.filter(o => o.status === 'shipped').length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
+  };
+
   return (
     <div className="orders-page">
       {/* Stats */}
@@ -73,7 +73,7 @@ const Orders: React.FC = () => {
             <Clock size={20} />
           </div>
           <div>
-            <span className="stat-value">12</span>
+            <span className="stat-value">{stats.pending}</span>
             <span className="stat-label">قيد الانتظار</span>
           </div>
         </div>
@@ -82,7 +82,7 @@ const Orders: React.FC = () => {
             <Package size={20} />
           </div>
           <div>
-            <span className="stat-value">8</span>
+            <span className="stat-value">{stats.processing}</span>
             <span className="stat-label">قيد التجهيز</span>
           </div>
         </div>
@@ -91,7 +91,7 @@ const Orders: React.FC = () => {
             <Truck size={20} />
           </div>
           <div>
-            <span className="stat-value">15</span>
+            <span className="stat-value">{stats.shipped}</span>
             <span className="stat-label">تم الشحن</span>
           </div>
         </div>
@@ -100,7 +100,7 @@ const Orders: React.FC = () => {
             <CheckCircle size={20} />
           </div>
           <div>
-            <span className="stat-value">234</span>
+            <span className="stat-value">{stats.delivered}</span>
             <span className="stat-label">تم التسليم</span>
           </div>
         </div>
@@ -139,73 +139,81 @@ const Orders: React.FC = () => {
 
       {/* Orders Table */}
       <div className="table-card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>رقم الطلب</th>
-                <th>العميل</th>
-                <th>المنتجات</th>
-                <th>الإجمالي</th>
-                <th>طريقة الدفع</th>
-                <th>التاريخ</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.map((order) => {
-                const status = statusConfig[order.status];
-                const StatusIcon = status.icon;
-                return (
-                  <tr key={order.id}>
-                    <td><strong>{order.id}</strong></td>
-                    <td>
-                      <div className="customer-cell">
-                        <span className="customer-name">{order.customer}</span>
-                        <span className="customer-email">{order.email}</span>
-                      </div>
-                    </td>
-                    <td>{order.items} منتج</td>
-                    <td><strong>{formatPrice(order.total)} ر.س</strong></td>
-                    <td>{order.paymentMethod}</td>
-                    <td>{formatDate(order.date)}</td>
-                    <td>
-                      <span 
-                        className="status-badge"
-                        style={{ background: status.bg, color: status.color }}
-                      >
-                        <StatusIcon size={14} />
-                        {status.label}
-                      </span>
-                    </td>
-                    <td>
-                      <button 
-                        className="btn btn-sm btn-outline"
-                        onClick={() => setSelectedOrder(order)}
-                      >
-                        <Eye size={14} />
-                        عرض
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="pagination">
-          <span className="pagination-info">عرض 1-{filteredOrders.length} من {orders.length} طلب</span>
-          <div className="pagination-buttons">
-            <button className="pagination-btn" disabled>السابق</button>
-            <button className="pagination-btn active">1</button>
-            <button className="pagination-btn">2</button>
-            <button className="pagination-btn">3</button>
-            <button className="pagination-btn">التالي</button>
+        {orders.length === 0 ? (
+          <div className="empty-state">
+            <Inbox size={48} />
+            <p>لا توجد طلبات بعد</p>
+            <span>سيتم عرض الطلبات هنا عند استقبالها من العملاء</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>رقم الطلب</th>
+                    <th>العميل</th>
+                    <th>المنتجات</th>
+                    <th>الإجمالي</th>
+                    <th>طريقة الدفع</th>
+                    <th>التاريخ</th>
+                    <th>الحالة</th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.map((order) => {
+                    const status = statusConfig[order.status];
+                    const StatusIcon = status.icon;
+                    return (
+                      <tr key={order.id}>
+                        <td><strong>{order.id}</strong></td>
+                        <td>
+                          <div className="customer-cell">
+                            <span className="customer-name">{order.customer}</span>
+                            <span className="customer-email">{order.email}</span>
+                          </div>
+                        </td>
+                        <td>{order.items} منتج</td>
+                        <td><strong>{formatPrice(order.total)} ر.س</strong></td>
+                        <td>{order.paymentMethod}</td>
+                        <td>{formatDate(order.date)}</td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ background: status.bg, color: status.color }}
+                          >
+                            <StatusIcon size={14} />
+                            {status.label}
+                          </span>
+                        </td>
+                        <td>
+                          <button 
+                            className="btn btn-sm btn-outline"
+                            onClick={() => setSelectedOrder(order)}
+                          >
+                            <Eye size={14} />
+                            عرض
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="pagination">
+              <span className="pagination-info">عرض 1-{filteredOrders.length} من {orders.length} طلب</span>
+              <div className="pagination-buttons">
+                <button className="pagination-btn" disabled>السابق</button>
+                <button className="pagination-btn active">1</button>
+                <button className="pagination-btn">التالي</button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Order Details Modal */}

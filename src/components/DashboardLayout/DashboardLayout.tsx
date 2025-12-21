@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -13,6 +13,8 @@ import {
   Bell,
   ChevronDown
 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
 import './DashboardLayout.css';
 
@@ -31,9 +33,23 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const { sidebarOpen, toggleSidebar, user, setUser } = useStore();
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate('/login');
+  // حماية الداشبورد - توجيه للتسجيل إذا لم يكن مسجل دخول
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      setUser(null);
+      navigate('/login');
+    }
   };
 
   const isActive = (path: string, exact?: boolean) => {

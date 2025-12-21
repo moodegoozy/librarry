@@ -7,9 +7,10 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import { useStore } from '../../store/useStore';
 import './Categories.css';
 
-interface Category {
+interface CategoryUI {
   id: string;
   name: string;
   nameEn: string;
@@ -18,82 +19,46 @@ interface Category {
   subcategories: { id: string; name: string; productsCount: number }[];
 }
 
-const demoCategories: Category[] = [
-  {
-    id: '1',
-    name: 'الجوالات والأجهزة الذكية',
-    nameEn: 'Phones & Smart Devices',
-    icon: '📱',
-    productsCount: 156,
-    subcategories: [
-      { id: '1-1', name: 'آيفون', productsCount: 45 },
-      { id: '1-2', name: 'سامسونج', productsCount: 38 },
-      { id: '1-3', name: 'هواوي', productsCount: 25 },
-      { id: '1-4', name: 'شاومي', productsCount: 28 },
-    ]
-  },
-  {
-    id: '2',
-    name: 'اللابتوبات والكمبيوتر',
-    nameEn: 'Laptops & Computers',
-    icon: '💻',
-    productsCount: 89,
-    subcategories: [
-      { id: '2-1', name: 'ماك بوك', productsCount: 22 },
-      { id: '2-2', name: 'ديل', productsCount: 18 },
-      { id: '2-3', name: 'لينوفو', productsCount: 24 },
-      { id: '2-4', name: 'HP', productsCount: 25 },
-    ]
-  },
-  {
-    id: '3',
-    name: 'التلفزيونات والشاشات',
-    nameEn: 'TVs & Displays',
-    icon: '📺',
-    productsCount: 67,
-    subcategories: [
-      { id: '3-1', name: 'سامسونج', productsCount: 28 },
-      { id: '3-2', name: 'LG', productsCount: 22 },
-      { id: '3-3', name: 'سوني', productsCount: 17 },
-    ]
-  },
-  {
-    id: '4',
-    name: 'الألعاب والقيمنق',
-    nameEn: 'Gaming',
-    icon: '🎮',
-    productsCount: 124,
-    subcategories: [
-      { id: '4-1', name: 'بلايستيشن', productsCount: 45 },
-      { id: '4-2', name: 'إكس بوكس', productsCount: 32 },
-      { id: '4-3', name: 'نينتندو', productsCount: 28 },
-      { id: '4-4', name: 'ملحقات الألعاب', productsCount: 19 },
-    ]
-  },
-  {
-    id: '5',
-    name: 'السماعات والصوتيات',
-    nameEn: 'Audio',
-    icon: '🎧',
-    productsCount: 98,
-    subcategories: [
-      { id: '5-1', name: 'سماعات رأس', productsCount: 42 },
-      { id: '5-2', name: 'سماعات لاسلكية', productsCount: 35 },
-      { id: '5-3', name: 'مكبرات صوت', productsCount: 21 },
-    ]
-  },
-];
-
 const Categories: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>(demoCategories);
-  const [expandedIds, setExpandedIds] = useState<string[]>(['1']);
+  const { categories: storeCategories, setCategories: setStoreCategories, products } = useStore();
+  
+  // تحويل التصنيفات من المتجر إلى الشكل المطلوب للعرض
+  const [categories, setCategories] = useState<CategoryUI[]>(() => {
+    if (storeCategories.length > 0) {
+      return storeCategories.map(c => ({
+        id: c.id,
+        name: c.name,
+        nameEn: c.nameEn || '',
+        icon: c.icon || '📦',
+        productsCount: products.filter(p => p.category === c.name).length,
+        subcategories: []
+      }));
+    }
+    return [];
+  });
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingCategory, setEditingCategory] = useState<CategoryUI | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     nameEn: '',
     icon: '',
   });
+
+  // حفظ التصنيفات في المتجر العام
+  const saveToStore = (newCategories: CategoryUI[]) => {
+    setCategories(newCategories);
+    setStoreCategories(newCategories.map((c, index) => ({
+      id: c.id,
+      name: c.name,
+      nameEn: c.nameEn,
+      icon: c.icon,
+      image: '',
+      order: index,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })));
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => 
@@ -101,7 +66,7 @@ const Categories: React.FC = () => {
     );
   };
 
-  const handleOpenModal = (category?: Category) => {
+  const handleOpenModal = (category?: CategoryUI) => {
     if (category) {
       setEditingCategory(category);
       setFormData({
@@ -111,7 +76,7 @@ const Categories: React.FC = () => {
       });
     } else {
       setEditingCategory(null);
-      setFormData({ name: '', nameEn: '', icon: '' });
+      setFormData({ name: '', nameEn: '', icon: '📦' });
     }
     setShowModal(true);
   };
@@ -120,26 +85,27 @@ const Categories: React.FC = () => {
     e.preventDefault();
     
     if (editingCategory) {
-      setCategories(categories.map(c => 
+      const updated = categories.map(c => 
         c.id === editingCategory.id 
           ? { ...c, ...formData }
           : c
-      ));
+      );
+      saveToStore(updated);
     } else {
-      const newCategory: Category = {
+      const newCategory: CategoryUI = {
         id: Date.now().toString(),
         ...formData,
         productsCount: 0,
         subcategories: []
       };
-      setCategories([...categories, newCategory]);
+      saveToStore([...categories, newCategory]);
     }
     setShowModal(false);
   };
 
   const handleDelete = (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا التصنيف؟')) {
-      setCategories(categories.filter(c => c.id !== id));
+      saveToStore(categories.filter(c => c.id !== id));
     }
   };
 

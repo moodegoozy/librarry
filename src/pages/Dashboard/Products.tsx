@@ -11,12 +11,12 @@ import {
   Image,
   X
 } from 'lucide-react';
+import { useStore } from '../../store/useStore';
 import type { Product } from '../../types';
 import './Products.css';
 
-// بدون منتجات وهمية - تبدأ فارغة
 const Products: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, setProducts } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);

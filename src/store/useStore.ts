@@ -99,7 +99,12 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'jaboory-store',
-      partialize: (state) => ({ cart: state.cart }),
+      partialize: (state) => ({ 
+        cart: state.cart,
+        user: state.user,
+        products: state.products,
+        categories: state.categories
+      }),
     }
   )
 );
