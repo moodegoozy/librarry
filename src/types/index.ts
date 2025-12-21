@@ -23,6 +23,8 @@ export interface Category {
   image?: string;
   subcategories?: Subcategory[];
   order: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Subcategory {

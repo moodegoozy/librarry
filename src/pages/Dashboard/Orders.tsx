@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Eye,
@@ -8,8 +8,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Inbox
+  Inbox,
+  Loader
 } from 'lucide-react';
+import { subscribeToOrders, updateOrderStatusInFirestore } from '../../services/firestore';
 import './Orders.css';
 
 interface Order {
@@ -33,10 +35,32 @@ const statusConfig = {
 };
 
 const Orders: React.FC = () => {
-  const [orders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [newStatus, setNewStatus] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  // الاشتراك في الطلبات من Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToOrders((firestoreOrders) => {
+      const mappedOrders: Order[] = firestoreOrders.map(o => ({
+        id: o.id,
+        customer: o.customer || 'عميل',
+        email: o.email || '',
+        phone: o.phone || '',
+        items: o.items.length,
+        total: o.total,
+        status: o.status as Order['status'],
+        paymentMethod: o.paymentMethod === 'cash' ? 'الدفع عند الاستلام' : 'بطاقة ائتمان',
+        date: o.createdAt instanceof Date ? o.createdAt.toISOString() : new Date().toISOString()
+      }));
+      setOrders(mappedOrders);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.id.includes(searchQuery) || order.customer.includes(searchQuery);
@@ -264,9 +288,13 @@ const Orders: React.FC = () => {
 
                 <div className="detail-section">
                   <h4>تحديث الحالة</h4>
-                  <select className="form-select">
+                  <select 
+                    className="form-select"
+                    value={newStatus || selectedOrder.status}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                  >
                     {Object.entries(statusConfig).map(([key, value]) => (
-                      <option key={key} value={key} selected={key === selectedOrder.status}>
+                      <option key={key} value={key}>
                         {value.label}
                       </option>
                     ))}
@@ -275,11 +303,31 @@ const Orders: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setSelectedOrder(null)}>
+              <button className="btn btn-outline" onClick={() => setSelectedOrder(null)} disabled={loading}>
                 إغلاق
               </button>
-              <button className="btn btn-primary">
-                حفظ التغييرات
+              <button 
+                className="btn btn-primary" 
+                disabled={loading}
+                onClick={async () => {
+                  if (newStatus && newStatus !== selectedOrder.status) {
+                    setLoading(true);
+                    try {
+                      await updateOrderStatusInFirestore(selectedOrder.id, newStatus as Order['status']);
+                      setSelectedOrder(null);
+                      setNewStatus('');
+                    } catch (error) {
+                      console.error('Error updating order status:', error);
+                      alert('حدث خطأ أثناء تحديث حالة الطلب');
+                    } finally {
+                      setLoading(false);
+                    }
+                  } else {
+                    setSelectedOrder(null);
+                  }
+                }}
+              >
+                {loading ? <Loader className="spinner" size={18} /> : 'حفظ التغييرات'}
               </button>
             </div>
           </div>

@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Edit, 
   Trash2,
   GripVertical,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Loader
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { 
+  subscribeToCategories, 
+  addCategoryToFirestore, 
+  updateCategoryInFirestore, 
+  deleteCategoryFromFirestore,
+  subscribeToProducts
+} from '../../services/firestore';
 import './Categories.css';
 
 interface CategoryUI {
@@ -20,12 +28,23 @@ interface CategoryUI {
 }
 
 const Categories: React.FC = () => {
-  const { categories: storeCategories, setCategories: setStoreCategories, products } = useStore();
+  const { setCategories: setStoreCategories, products, setProducts } = useStore();
   
-  // تحويل التصنيفات من المتجر إلى الشكل المطلوب للعرض
-  const [categories, setCategories] = useState<CategoryUI[]>(() => {
-    if (storeCategories.length > 0) {
-      return storeCategories.map(c => ({
+  const [categories, setCategories] = useState<CategoryUI[]>([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryUI | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    nameEn: '',
+    icon: '',
+  });
+
+  // الاشتراك في التصنيفات والمنتجات من Firestore
+  useEffect(() => {
+    const unsubscribeCategories = subscribeToCategories((firestoreCategories) => {
+      const categoriesUI = firestoreCategories.map(c => ({
         id: c.id,
         name: c.name,
         nameEn: c.nameEn || '',
@@ -33,32 +52,19 @@ const Categories: React.FC = () => {
         productsCount: products.filter(p => p.category === c.name).length,
         subcategories: []
       }));
-    }
-    return [];
-  });
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CategoryUI | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    nameEn: '',
-    icon: '',
-  });
+      setCategories(categoriesUI);
+      setStoreCategories(firestoreCategories);
+    });
 
-  // حفظ التصنيفات في المتجر العام
-  const saveToStore = (newCategories: CategoryUI[]) => {
-    setCategories(newCategories);
-    setStoreCategories(newCategories.map((c, index) => ({
-      id: c.id,
-      name: c.name,
-      nameEn: c.nameEn,
-      icon: c.icon,
-      image: '',
-      order: index,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })));
-  };
+    const unsubscribeProducts = subscribeToProducts((firestoreProducts) => {
+      setProducts(firestoreProducts);
+    });
+
+    return () => {
+      unsubscribeCategories();
+      unsubscribeProducts();
+    };
+  }, [setStoreCategories, setProducts, products.length]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => 
@@ -81,31 +87,46 @@ const Categories: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    if (editingCategory) {
-      const updated = categories.map(c => 
-        c.id === editingCategory.id 
-          ? { ...c, ...formData }
-          : c
-      );
-      saveToStore(updated);
-    } else {
-      const newCategory: CategoryUI = {
-        id: Date.now().toString(),
-        ...formData,
-        productsCount: 0,
-        subcategories: []
-      };
-      saveToStore([...categories, newCategory]);
+    try {
+      if (editingCategory) {
+        await updateCategoryInFirestore(editingCategory.id, {
+          name: formData.name,
+          nameEn: formData.nameEn,
+          icon: formData.icon,
+          updatedAt: new Date()
+        });
+      } else {
+        await addCategoryToFirestore({
+          name: formData.name,
+          nameEn: formData.nameEn,
+          icon: formData.icon,
+          image: '',
+          order: categories.length,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      alert('حدث خطأ أثناء حفظ التصنيف');
+    } finally {
+      setLoading(false);
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا التصنيف؟')) {
-      saveToStore(categories.filter(c => c.id !== id));
+      try {
+        await deleteCategoryFromFirestore(id);
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        alert('حدث خطأ أثناء حذف التصنيف');
+      }
     }
   };
 
@@ -216,11 +237,11 @@ const Categories: React.FC = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)} disabled={loading}>
                   إلغاء
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingCategory ? 'حفظ التغييرات' : 'إضافة التصنيف'}
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? <Loader className="spinner" size={18} /> : (editingCategory ? 'حفظ التغييرات' : 'إضافة التصنيف')}
                 </button>
               </div>
             </form>

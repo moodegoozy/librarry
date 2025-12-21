@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -9,10 +9,44 @@ import {
   Inbox
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { 
+  subscribeToProducts, 
+  subscribeToCategories, 
+  subscribeToOrders 
+} from '../../services/firestore';
+import type { Order } from '../../services/firestore';
 import './DashboardHome.css';
 
 const DashboardHome: React.FC = () => {
-  const { products, categories } = useStore();
+  const { products, categories, setProducts, setCategories } = useStore();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+
+  // الاشتراك في البيانات من Firestore
+  useEffect(() => {
+    const unsubscribeProducts = subscribeToProducts((firestoreProducts) => {
+      setProducts(firestoreProducts);
+    });
+
+    const unsubscribeCategories = subscribeToCategories((firestoreCategories) => {
+      setCategories(firestoreCategories);
+    });
+
+    const unsubscribeOrders = subscribeToOrders((firestoreOrders) => {
+      setOrders(firestoreOrders);
+      // حساب الإيرادات من الطلبات المكتملة
+      const revenue = firestoreOrders
+        .filter(o => o.status === 'delivered')
+        .reduce((sum, o) => sum + o.total, 0);
+      setTotalRevenue(revenue);
+    });
+
+    return () => {
+      unsubscribeProducts();
+      unsubscribeCategories();
+      unsubscribeOrders();
+    };
+  }, [setProducts, setCategories]);
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ar-SA').format(num);
@@ -22,17 +56,17 @@ const DashboardHome: React.FC = () => {
   const stats = [
     {
       title: 'إجمالي الإيرادات',
-      value: '0',
+      value: formatNumber(totalRevenue),
       unit: 'ر.س',
-      change: '0%',
+      change: '+0%',
       trend: 'up' as const,
       icon: DollarSign,
       color: '#22c55e'
     },
     {
       title: 'إجمالي الطلبات',
-      value: '0',
-      change: '0%',
+      value: orders.length.toString(),
+      change: '+0%',
       trend: 'up' as const,
       icon: ShoppingCart,
       color: '#3b82f6'

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -9,9 +9,16 @@ import {
   Download,
   Upload,
   Image,
-  X
+  X,
+  Loader
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { 
+  subscribeToProducts, 
+  addProduct as addProductToFirestore,
+  updateProduct as updateProductInFirestore,
+  deleteProduct as deleteProductFromFirestore
+} from '../../services/firestore';
 import type { Product } from '../../types';
 import './Products.css';
 
@@ -20,6 +27,7 @@ const Products: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     nameEn: '',
@@ -32,6 +40,14 @@ const Products: React.FC = () => {
     images: [] as string[]
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // الاشتراك في تحديثات المنتجات من Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToProducts((firestoreProducts) => {
+      setProducts(firestoreProducts);
+    });
+    return () => unsubscribe();
+  }, [setProducts]);
 
   const filteredProducts = products.filter(p => 
     p.name.includes(searchQuery) || p.nameEn.toLowerCase().includes(searchQuery.toLowerCase())
@@ -91,36 +107,48 @@ const Products: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    const newProduct: Product = {
-      id: editingProduct?.id || Date.now().toString(),
-      name: formData.name,
-      nameEn: formData.nameEn,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
-      category: formData.category,
-      images: formData.images.length ? formData.images : ['https://via.placeholder.com/300'],
-      stock: parseInt(formData.stock),
-      featured: formData.featured,
-      createdAt: editingProduct?.createdAt || new Date(),
-      updatedAt: new Date()
-    };
+    try {
+      const productData = {
+        name: formData.name,
+        nameEn: formData.nameEn,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
+        category: formData.category,
+        images: formData.images.length ? formData.images : ['https://via.placeholder.com/300'],
+        stock: parseInt(formData.stock),
+        featured: formData.featured,
+        createdAt: editingProduct?.createdAt || new Date(),
+        updatedAt: new Date()
+      };
 
-    if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? newProduct : p));
-    } else {
-      setProducts([...products, newProduct]);
+      if (editingProduct) {
+        await updateProductInFirestore(editingProduct.id, productData);
+      } else {
+        await addProductToFirestore(productData);
+      }
+
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error saving product:', error);
+      alert('حدث خطأ أثناء حفظ المنتج');
+    } finally {
+      setLoading(false);
     }
-
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-      setProducts(products.filter(p => p.id !== id));
+      try {
+        await deleteProductFromFirestore(id);
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('حدث خطأ أثناء حذف المنتج');
+      }
     }
   };
 
@@ -406,11 +434,11 @@ const Products: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)} disabled={loading}>
                   إلغاء
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingProduct ? 'حفظ التغييرات' : 'إضافة المنتج'}
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? <Loader className="spinner" size={18} /> : (editingProduct ? 'حفظ التغييرات' : 'إضافة المنتج')}
                 </button>
               </div>
             </form>

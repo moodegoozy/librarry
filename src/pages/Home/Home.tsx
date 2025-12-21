@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Smartphone, Laptop, Tv, Gamepad2, Headphones, Watch, Inbox } from 'lucide-react';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import { useStore } from '../../store/useStore';
+import { subscribeToProducts } from '../../services/firestore';
 import './Home.css';
 
 const defaultCategories = [
@@ -15,7 +16,16 @@ const defaultCategories = [
 ];
 
 const Home: React.FC = () => {
-  const { products } = useStore();
+  const { products, setProducts } = useStore();
+
+  // الاشتراك في المنتجات من Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToProducts((firestoreProducts) => {
+      setProducts(firestoreProducts);
+    });
+
+    return () => unsubscribe();
+  }, [setProducts]);
   
   const featuredProducts = products.filter(p => p.featured);
 
