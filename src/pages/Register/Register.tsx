@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
+import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
-import './Login.css';
+import '../Login/Login.css';
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,39 +23,52 @@ const Login: React.FC = () => {
     setLoading(true);
     setError('');
 
+    if (password !== confirmPassword) {
+      setError('كلمتا المرور غير متطابقتين');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
+      
+      // تحديث اسم المستخدم
+      await updateProfile(firebaseUser, { displayName: name });
       
       setUser({
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
-        name: firebaseUser.displayName || 'مستخدم',
-        role: 'admin', // يمكنك إضافة منطق لتحديد الدور من Firestore
+        name: name,
+        role: 'customer',
         addresses: [],
         createdAt: new Date()
       });
       
-      navigate('/dashboard');
+      navigate('/');
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
-      if (firebaseError.code === 'auth/user-not-found') {
-        setError('لا يوجد حساب بهذا البريد الإلكتروني');
-      } else if (firebaseError.code === 'auth/wrong-password') {
-        setError('كلمة المرور غير صحيحة');
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        setError('البريد الإلكتروني مستخدم بالفعل');
       } else if (firebaseError.code === 'auth/invalid-email') {
         setError('البريد الإلكتروني غير صالح');
-      } else if (firebaseError.code === 'auth/invalid-credential') {
-        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+      } else if (firebaseError.code === 'auth/weak-password') {
+        setError('كلمة المرور ضعيفة جداً');
       } else {
-        setError('حدث خطأ أثناء تسجيل الدخول');
+        setError('حدث خطأ أثناء إنشاء الحساب');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignup = async () => {
     setLoading(true);
     setError('');
     
@@ -75,9 +90,9 @@ const Login: React.FC = () => {
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
       if (firebaseError.code === 'auth/popup-closed-by-user') {
-        setError('تم إلغاء تسجيل الدخول');
+        setError('تم إلغاء التسجيل');
       } else {
-        setError('حدث خطأ أثناء تسجيل الدخول بـ Google');
+        setError('حدث خطأ أثناء التسجيل بـ Google');
       }
     } finally {
       setLoading(false);
@@ -93,8 +108,8 @@ const Login: React.FC = () => {
               <span className="logo-text">جبوري</span>
               <span className="logo-sub">للإلكترونيات</span>
             </Link>
-            <h1>تسجيل الدخول</h1>
-            <p>مرحباً بك مجدداً! سجل دخولك للمتابعة</p>
+            <h1>إنشاء حساب جديد</h1>
+            <p>أنشئ حسابك للاستفادة من جميع المميزات</p>
           </div>
 
           {error && (
@@ -104,6 +119,21 @@ const Login: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">الاسم الكامل</label>
+              <div className="input-icon">
+                <User size={20} />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="أدخل اسمك"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="form-group">
               <label className="form-label">البريد الإلكتروني</label>
               <div className="input-icon">
@@ -141,14 +171,19 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="form-options">
-              <label className="checkbox-label">
-                <input type="checkbox" />
-                <span>تذكرني</span>
-              </label>
-              <Link to="/forgot-password" className="forgot-link">
-                نسيت كلمة المرور؟
-              </Link>
+            <div className="form-group">
+              <label className="form-label">تأكيد كلمة المرور</label>
+              <div className="input-icon">
+                <Lock size={20} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <button 
@@ -156,7 +191,7 @@ const Login: React.FC = () => {
               className="btn btn-primary btn-lg btn-block"
               disabled={loading}
             >
-              {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+              {loading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}
             </button>
           </form>
 
@@ -168,18 +203,18 @@ const Login: React.FC = () => {
             <button 
               type="button"
               className="social-btn google"
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleSignup}
               disabled={loading}
             >
               <span>G</span>
-              تسجيل بحساب Google
+              التسجيل بحساب Google
             </button>
           </div>
 
           <div className="login-footer">
             <p>
-              ليس لديك حساب؟{' '}
-              <Link to="/register">إنشاء حساب جديد</Link>
+              لديك حساب بالفعل؟{' '}
+              <Link to="/login">تسجيل الدخول</Link>
             </p>
           </div>
         </div>
@@ -188,4 +223,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Register;

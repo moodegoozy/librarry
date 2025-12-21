@@ -10,6 +10,7 @@ import DashboardLayout from './components/DashboardLayout/DashboardLayout';
 import Home from './pages/Home/Home';
 import Cart from './pages/Cart/Cart';
 import Login from './pages/Login/Login';
+import Register from './pages/Register/Register';
 
 // Dashboard Pages
 import DashboardHome from './pages/Dashboard/DashboardHome';
@@ -35,6 +36,7 @@ const App: React.FC = () => {
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={<DashboardLayout />}>
