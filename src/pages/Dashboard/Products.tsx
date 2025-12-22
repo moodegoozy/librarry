@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { 
-  subscribeToProducts, 
+  subscribeToProducts,
+  subscribeToCategories,
   addProduct as addProductToFirestore,
   updateProduct as updateProductInFirestore,
   deleteProduct as deleteProductFromFirestore
@@ -23,7 +24,7 @@ import type { Product } from '../../types';
 import './Products.css';
 
 const Products: React.FC = () => {
-  const { products, setProducts } = useStore();
+  const { products, setProducts, categories, setCategories } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -41,13 +42,19 @@ const Products: React.FC = () => {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // الاشتراك في تحديثات المنتجات من Firestore
+  // الاشتراك في تحديثات المنتجات والتصنيفات من Firestore
   useEffect(() => {
-    const unsubscribe = subscribeToProducts((firestoreProducts) => {
+    const unsubProducts = subscribeToProducts((firestoreProducts) => {
       setProducts(firestoreProducts);
     });
-    return () => unsubscribe();
-  }, [setProducts]);
+    const unsubCategories = subscribeToCategories((firestoreCategories) => {
+      setCategories(firestoreCategories);
+    });
+    return () => {
+      unsubProducts();
+      unsubCategories();
+    };
+  }, [setProducts, setCategories]);
 
   const filteredProducts = products.filter(p => 
     p.name.includes(searchQuery) || p.nameEn.toLowerCase().includes(searchQuery.toLowerCase())
@@ -360,11 +367,9 @@ const Products: React.FC = () => {
                       required
                     >
                       <option value="">اختر التصنيف</option>
-                      <option value="الجوالات">الجوالات</option>
-                      <option value="اللابتوبات">اللابتوبات</option>
-                      <option value="التلفزيونات">التلفزيونات</option>
-                      <option value="الألعاب">الألعاب</option>
-                      <option value="السماعات">السماعات</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group">

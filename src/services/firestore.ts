@@ -115,14 +115,26 @@ export const ordersCollection = collection(db, 'orders');
 
 export interface FirestoreOrder {
   id: string;
+  userId?: string;
   customer: string;
   email: string;
   phone: string;
-  items: { productId: string; name: string; quantity: number; price: number }[];
+  items: { productId: string; name: string; quantity: number; price: number; image?: string }[];
   total: number;
+  subtotal?: number;
+  shippingCost?: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: string;
   shippingAddress: string;
+  address?: {
+    fullName: string;
+    phone: string;
+    city: string;
+    district: string;
+    street: string;
+    building?: string;
+  };
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -177,3 +189,162 @@ export const updateOrderStatusInFirestore = updateOrderStatus;
 
 // Export Order type alias
 export type Order = FirestoreOrder;
+
+// ==================== Users ====================
+
+import type { User } from '../types';
+
+export const usersCollection = collection(db, 'users');
+
+export const getUser = async (userId: string): Promise<User | null> => {
+  const docSnap = await getDocs(query(collection(db, 'users')));
+  const userDoc = docSnap.docs.find(d => d.id === userId);
+  if (userDoc) {
+    return {
+      id: userDoc.id,
+      ...userDoc.data(),
+      createdAt: userDoc.data().createdAt?.toDate() || new Date()
+    } as User;
+  }
+  return null;
+};
+
+export const getUserById = async (userId: string): Promise<User | null> => {
+  const { getDoc } = await import('firebase/firestore');
+  const docRef = doc(db, 'users', userId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return {
+      id: docSnap.id,
+      ...docSnap.data(),
+      createdAt: docSnap.data().createdAt?.toDate() || new Date()
+    } as User;
+  }
+  return null;
+};
+
+export const createOrUpdateUser = async (user: User): Promise<void> => {
+  const { setDoc } = await import('firebase/firestore');
+  const docRef = doc(db, 'users', user.id);
+  await setDoc(docRef, {
+    email: user.email,
+    name: user.name,
+    phone: user.phone || '',
+    role: user.role,
+    addresses: user.addresses || [],
+    createdAt: Timestamp.now()
+  }, { merge: true });
+};
+
+export const updateUserRole = async (userId: string, role: 'customer' | 'admin'): Promise<void> => {
+  const docRef = doc(db, 'users', userId);
+  await updateDoc(docRef, { role });
+};
+
+export const getAllUsers = async (): Promise<User[]> => {
+  const snapshot = await getDocs(query(usersCollection, orderBy('createdAt', 'desc')));
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date()
+  })) as User[];
+};
+
+export const subscribeToUsers = (callback: (users: User[]) => void) => {
+  return onSnapshot(query(usersCollection, orderBy('createdAt', 'desc')), (snapshot) => {
+    const users = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date()
+    })) as User[];
+    callback(users);
+  });
+};
+
+// ==================== User Orders ====================
+
+export const getUserOrders = async (userId: string): Promise<FirestoreOrder[]> => {
+  const { where } = await import('firebase/firestore');
+  const q = query(ordersCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    updatedAt: doc.data().updatedAt?.toDate() || new Date()
+  })) as FirestoreOrder[];
+};
+
+export const subscribeToUserOrders = async (userId: string, callback: (orders: FirestoreOrder[]) => void) => {
+  const { where } = await import('firebase/firestore');
+  const q = query(ordersCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const orders = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date()
+    })) as FirestoreOrder[];
+    callback(orders);
+  });
+};
+
+// ==================== Settings ====================
+
+export interface StoreSettings {
+  store?: {
+    storeName: string;
+    storeEmail: string;
+    storePhone: string;
+    storeAddress: string;
+    currency: string;
+    language: string;
+  };
+  shipping?: {
+    freeShippingThreshold: number;
+    defaultShippingCost: number;
+    enableFreeShipping: boolean;
+    estimatedDays: string;
+  };
+  notifications?: {
+    orderNotifications: boolean;
+    lowStockAlert: boolean;
+    customerMessages: boolean;
+    marketingEmails: boolean;
+    lowStockThreshold: number;
+  };
+  payment?: {
+    methods: { id: string; name: string; enabled: boolean }[];
+  };
+  updatedAt?: Date;
+}
+
+export const getSettings = async (): Promise<StoreSettings | null> => {
+  const { getDoc } = await import('firebase/firestore');
+  const docRef = doc(db, 'settings', 'store');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as StoreSettings;
+  }
+  return null;
+};
+
+export const updateSettings = async (settings: Partial<StoreSettings>): Promise<void> => {
+  const { setDoc } = await import('firebase/firestore');
+  const docRef = doc(db, 'settings', 'store');
+  await setDoc(docRef, {
+    ...settings,
+    updatedAt: Timestamp.now()
+  }, { merge: true });
+};
+
+export const subscribeToSettings = (callback: (settings: StoreSettings | null) => void) => {
+  const docRef = doc(db, 'settings', 'store');
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data() as StoreSettings);
+    } else {
+      callback(null);
+    }
+  });
+};

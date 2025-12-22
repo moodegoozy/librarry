@@ -6,9 +6,21 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
-  Loader
+  Loader,
+  Smartphone,
+  Laptop,
+  Tv,
+  Gamepad2,
+  Headphones,
+  Watch,
+  Package
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+
+// خريطة الأيقونات
+const iconMap: Record<string, React.ElementType> = {
+  Smartphone, Laptop, Tv, Gamepad2, Headphones, Watch, Package
+};
 import { 
   subscribeToCategories, 
   addCategoryToFirestore, 
@@ -48,8 +60,8 @@ const Categories: React.FC = () => {
         id: c.id,
         name: c.name,
         nameEn: c.nameEn || '',
-        icon: c.icon || '📦',
-        productsCount: products.filter(p => p.category === c.name).length,
+        icon: c.icon || 'Package',
+        productsCount: products.filter(p => p.category === c.id).length,
         subcategories: []
       }));
       setCategories(categoriesUI);
@@ -82,7 +94,7 @@ const Categories: React.FC = () => {
       });
     } else {
       setEditingCategory(null);
-      setFormData({ name: '', nameEn: '', icon: '📦' });
+      setFormData({ name: '', nameEn: '', icon: 'Package' });
     }
     setShowModal(true);
   };
@@ -145,13 +157,15 @@ const Categories: React.FC = () => {
       {/* Categories List */}
       <div className="categories-card">
         <div className="categories-list">
-          {categories.map((category) => (
+          {categories.map((category) => {
+            const IconComponent = iconMap[category.icon] || Package;
+            return (
             <div key={category.id} className="category-item">
               <div className="category-main" onClick={() => toggleExpand(category.id)}>
                 <div className="category-drag">
                   <GripVertical size={18} />
                 </div>
-                <span className="category-icon">{category.icon}</span>
+                <span className="category-icon"><IconComponent size={20} /></span>
                 <div className="category-info">
                   <span className="category-name">{category.name}</span>
                   <span className="category-count">{category.productsCount} منتج</span>
@@ -192,7 +206,7 @@ const Categories: React.FC = () => {
                 </div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       </div>
 
@@ -226,14 +240,20 @@ const Categories: React.FC = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">الأيقونة (إيموجي)</label>
-                  <input
-                    type="text"
-                    className="form-input icon-input"
+                  <label className="form-label">الأيقونة</label>
+                  <select
+                    className="form-select"
                     value={formData.icon}
                     onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                    placeholder="📱"
-                  />
+                  >
+                    <option value="Smartphone">📱 جوالات</option>
+                    <option value="Laptop">💻 لابتوبات</option>
+                    <option value="Tv">📺 تلفزيونات</option>
+                    <option value="Gamepad2">🎮 ألعاب</option>
+                    <option value="Headphones">🎧 سماعات</option>
+                    <option value="Watch">⌚ ساعات</option>
+                    <option value="Package">📦 أخرى</option>
+                  </select>
                 </div>
               </div>
               <div className="modal-footer">

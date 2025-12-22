@@ -1,11 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { getSettings } from '../../services/firestore';
 import './Cart.css';
+
+interface ShippingSettings {
+  freeShippingThreshold: number;
+  defaultShippingCost: number;
+  enableFreeShipping: boolean;
+}
 
 const Cart: React.FC = () => {
   const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useStore();
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
+    freeShippingThreshold: 200,
+    defaultShippingCost: 25,
+    enableFreeShipping: true
+  });
+
+  // جلب إعدادات الشحن
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings?.shipping) {
+          setShippingSettings(settings.shipping);
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ar-SA', {
@@ -32,7 +59,9 @@ const Cart: React.FC = () => {
   }
 
   const subtotal = getCartTotal();
-  const shipping = subtotal > 200 ? 0 : 25;
+  const shipping = shippingSettings.enableFreeShipping && subtotal >= shippingSettings.freeShippingThreshold
+    ? 0 
+    : shippingSettings.defaultShippingCost;
   const total = subtotal + shipping;
 
   return (
@@ -117,9 +146,9 @@ const Cart: React.FC = () => {
               </span>
             </div>
 
-            {shipping > 0 && (
+            {shipping > 0 && shippingSettings.enableFreeShipping && (
               <div className="free-shipping-notice">
-                أضف {formatPrice(200 - subtotal)} للحصول على شحن مجاني
+                أضف {formatPrice(shippingSettings.freeShippingThreshold - subtotal)} للحصول على شحن مجاني
               </div>
             )}
             

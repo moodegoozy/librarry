@@ -1,13 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
 
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --secondary: #f97316;
+  --primary: #1a5f7a;
+  --primary-dark: #134b5f;
+  --secondary: #ffc93c;
   --success: #22c55e;
-  --warning: #eab308;
+  --warning: #ffc93c;
   --danger: #ef4444;
-  --dark: #1e293b;
+  --dark: #1a3c4d;
   --light: #f8fafc;
   --gray: #64748b;
   --border: #e2e8f0;

@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
+import { getUserById, createOrUpdateUser } from '../../services/firestore';
 import './Login.css';
 
 const Login: React.FC = () => {
@@ -25,16 +26,30 @@ const Login: React.FC = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      setUser({
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: firebaseUser.displayName || 'مستخدم',
-        role: 'admin', // يمكنك إضافة منطق لتحديد الدور من Firestore
-        addresses: [],
-        createdAt: new Date()
-      });
+      // جلب بيانات المستخدم من Firestore
+      let userData = await getUserById(firebaseUser.uid);
       
-      navigate('/dashboard');
+      if (!userData) {
+        // إنشاء مستخدم جديد في Firestore
+        userData = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || 'مستخدم',
+          role: 'customer', // العملاء الجدد كـ customer
+          addresses: [],
+          createdAt: new Date()
+        };
+        await createOrUpdateUser(userData);
+      }
+      
+      setUser(userData);
+      
+      // توجيه حسب الدور
+      if (userData.role === 'admin') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
       if (firebaseError.code === 'auth/user-not-found') {
@@ -62,16 +77,28 @@ const Login: React.FC = () => {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
       
-      setUser({
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: firebaseUser.displayName || 'مستخدم',
-        role: 'customer',
-        addresses: [],
-        createdAt: new Date()
-      });
+      // جلب أو إنشاء المستخدم في Firestore
+      let userData = await getUserById(firebaseUser.uid);
       
-      navigate('/');
+      if (!userData) {
+        userData = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || 'مستخدم',
+          role: 'customer',
+          addresses: [],
+          createdAt: new Date()
+        };
+        await createOrUpdateUser(userData);
+      }
+      
+      setUser(userData);
+      
+      if (userData.role === 'admin') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
       if (firebaseError.code === 'auth/popup-closed-by-user') {

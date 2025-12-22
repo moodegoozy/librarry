@@ -16,6 +16,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
+import logoImage from '../../assets/logo.jpeg';
 import './DashboardLayout.css';
 
 const menuItems = [
@@ -33,10 +34,12 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const { sidebarOpen, toggleSidebar, user, setUser } = useStore();
 
-  // حماية الداشبورد - توجيه للتسجيل إذا لم يكن مسجل دخول
+  // حماية الداشبورد - فقط للأدمن
   useEffect(() => {
     if (!user) {
       navigate('/login');
+    } else if (user.role !== 'admin') {
+      navigate('/account'); // توجيه العملاء لصفحة حسابهم
     }
   }, [user, navigate]);
 
@@ -72,7 +75,7 @@ const DashboardLayout: React.FC = () => {
       <aside className="dashboard-sidebar">
         <div className="sidebar-header">
           <Link to="/" className="sidebar-logo">
-            <span className="logo-text">جبوري</span>
+            <img src={logoImage} alt="جبوري" className="sidebar-logo-image" />
             <span className="logo-sub">لوحة التحكم</span>
           </Link>
         </div>

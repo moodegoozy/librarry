@@ -1,31 +1,42 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Smartphone, Laptop, Tv, Gamepad2, Headphones, Watch, Inbox } from 'lucide-react';
+import { ChevronLeft, Smartphone, Laptop, Tv, Gamepad2, Headphones, Watch, Inbox, Package } from 'lucide-react';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import { useStore } from '../../store/useStore';
-import { subscribeToProducts } from '../../services/firestore';
+import { subscribeToProducts, subscribeToCategories } from '../../services/firestore';
 import './Home.css';
 
-const defaultCategories = [
-  { id: 'phones', name: 'الجوالات', icon: Smartphone, color: '#3b82f6' },
-  { id: 'laptops', name: 'اللابتوبات', icon: Laptop, color: '#8b5cf6' },
-  { id: 'tvs', name: 'التلفزيونات', icon: Tv, color: '#ec4899' },
-  { id: 'gaming', name: 'الألعاب', icon: Gamepad2, color: '#10b981' },
-  { id: 'audio', name: 'السماعات', icon: Headphones, color: '#f59e0b' },
-  { id: 'watches', name: 'الساعات', icon: Watch, color: '#6366f1' },
-];
+// خريطة الأيقونات حسب التصنيف
+const iconMap: Record<string, React.ElementType> = {
+  Smartphone, Laptop, Tv, Gamepad2, Headphones, Watch, Package
+};
+
+const colorMap: Record<string, string> = {
+  phones: '#3b82f6',
+  laptops: '#8b5cf6',
+  tvs: '#ec4899',
+  gaming: '#10b981',
+  audio: '#f59e0b',
+  watches: '#6366f1',
+};
 
 const Home: React.FC = () => {
-  const { products, setProducts } = useStore();
+  const { products, setProducts, categories, setCategories } = useStore();
 
-  // الاشتراك في المنتجات من Firestore
+  // الاشتراك في المنتجات والتصنيفات من Firestore
   useEffect(() => {
-    const unsubscribe = subscribeToProducts((firestoreProducts) => {
+    const unsubProducts = subscribeToProducts((firestoreProducts) => {
       setProducts(firestoreProducts);
     });
+    const unsubCategories = subscribeToCategories((firestoreCategories) => {
+      setCategories(firestoreCategories);
+    });
 
-    return () => unsubscribe();
-  }, [setProducts]);
+    return () => {
+      unsubProducts();
+      unsubCategories();
+    };
+  }, [setProducts, setCategories]);
   
   const featuredProducts = products.filter(p => p.featured);
 
@@ -65,19 +76,27 @@ const Home: React.FC = () => {
             </Link>
           </div>
           <div className="categories-grid">
-            {defaultCategories.map((cat) => (
-              <Link 
-                key={cat.id} 
-                to={`/products?category=${cat.id}`}
-                className="category-card"
-                style={{ '--cat-color': cat.color } as React.CSSProperties}
-              >
-                <div className="category-icon">
-                  <cat.icon size={32} />
-                </div>
-                <span>{cat.name}</span>
-              </Link>
-            ))}
+            {categories.length > 0 ? categories.map((cat) => {
+              const IconComponent = iconMap[cat.icon] || Package;
+              const color = colorMap[cat.id] || '#64748b';
+              return (
+                <Link 
+                  key={cat.id} 
+                  to={`/products?category=${cat.id}`}
+                  className="category-card"
+                  style={{ '--cat-color': color } as React.CSSProperties}
+                >
+                  <div className="category-icon">
+                    <IconComponent size={32} />
+                  </div>
+                  <span>{cat.name}</span>
+                </Link>
+              );
+            }) : (
+              <p style={{ textAlign: 'center', color: 'var(--gray)', gridColumn: '1/-1' }}>
+                لا توجد تصنيفات - أضفها من لوحة التحكم
+              </p>
+            )}
           </div>
         </div>
       </section>

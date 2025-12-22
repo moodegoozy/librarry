@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -11,13 +11,23 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { subscribeToCategories } from '../../services/firestore';
+import logoImage from '../../assets/logo.jpeg';
 import './Header.css';
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { getCartCount, user, searchQuery, setSearchQuery } = useStore();
+  const { getCartCount, user, searchQuery, setSearchQuery, categories, setCategories } = useStore();
   const navigate = useNavigate();
+
+  // الاشتراك في التصنيفات من Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToCategories((firestoreCategories) => {
+      setCategories(firestoreCategories);
+    });
+    return () => unsubscribe();
+  }, [setCategories]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +81,7 @@ const Header: React.FC = () => {
 
             {/* Logo */}
             <Link to="/" className="logo">
-              <span className="logo-text">جبوري</span>
-              <span className="logo-sub">للإلكترونيات</span>
+              <img src={logoImage} alt="جبوري للإلكترونيات" className="logo-image" />
             </Link>
 
             {/* Search Bar */}
@@ -146,12 +155,13 @@ const Header: React.FC = () => {
                 التصنيفات <ChevronDown size={16} />
               </span>
               <div className="dropdown-menu">
-                <Link to="/products?category=phones">الجوالات والأجهزة الذكية</Link>
-                <Link to="/products?category=laptops">اللابتوبات والكمبيوتر</Link>
-                <Link to="/products?category=tvs">التلفزيونات والشاشات</Link>
-                <Link to="/products?category=gaming">الألعاب والقيمنق</Link>
-                <Link to="/products?category=audio">السماعات والصوتيات</Link>
-                <Link to="/products?category=accessories">الإكسسوارات</Link>
+                {categories.length > 0 ? (
+                  categories.map(cat => (
+                    <Link key={cat.id} to={`/products?category=${cat.id}`}>{cat.name}</Link>
+                  ))
+                ) : (
+                  <span style={{ padding: '10px', color: 'var(--gray)' }}>لا توجد تصنيفات</span>
+                )}
               </div>
             </li>
             <li className="nav-item">
