@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  User, 
-  MapPin, 
-  Phone, 
-  Edit, 
-  Save, 
-  Package, 
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  User,
+  MapPin,
+  Phone,
+  Edit,
+  Save,
+  Package,
   Heart,
   LogOut,
   ShoppingBag,
@@ -14,65 +14,94 @@ import {
   Clock,
   Truck,
   CheckCircle,
-  XCircle
-} from 'lucide-react';
-import { signOut } from 'firebase/auth';
-import { auth, db } from '../../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useStore } from '../../store/useStore';
-import { getUserOrders } from '../../services/firestore';
-import type { FirestoreOrder } from '../../services/firestore';
-import Header from '../../components/Header/Header';
-import Footer from '../../components/Footer/Footer';
-import './Account.css';
+  XCircle,
+  Trash2,
+} from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth, db } from "../../config/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { useStore } from "../../store/useStore";
+import { getUserOrders } from "../../services/firestore";
+import type { FirestoreOrder } from "../../services/firestore";
+import Header from "../../components/Header/Header";
+import Footer from "../../components/Footer/Footer";
+import "./Account.css";
 
 const Account: React.FC = () => {
   const navigate = useNavigate();
-  const { user, setUser } = useStore();
-  const [activeTab, setActiveTab] = useState('profile');
+  const location = useLocation();
+  const { user, setUser, wishlist, toggleWishlist, products } = useStore();
+  const [activeTab, setActiveTab] = useState(() => {
+    return location.pathname === "/wishlist" ? "wishlist" : "profile";
+  });
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<FirestoreOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    city: '',
-    district: '',
-    street: '',
-    building: ''
+    name: "",
+    phone: "",
+    email: "",
+    city: "",
+    district: "",
+    street: "",
+    building: "",
   });
 
   // Status config for orders
   const statusConfig = {
-    pending: { label: 'قيد الانتظار', icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
-    processing: { label: 'قيد التجهيز', icon: Package, color: '#3b82f6', bg: '#dbeafe' },
-    shipped: { label: 'تم الشحن', icon: Truck, color: '#8b5cf6', bg: '#ede9fe' },
-    delivered: { label: 'تم التسليم', icon: CheckCircle, color: '#22c55e', bg: '#dcfce7' },
-    cancelled: { label: 'ملغي', icon: XCircle, color: '#ef4444', bg: '#fee2e2' },
+    pending: {
+      label: "قيد الانتظار",
+      icon: Clock,
+      color: "#f59e0b",
+      bg: "#fef3c7",
+    },
+    processing: {
+      label: "قيد التجهيز",
+      icon: Package,
+      color: "#3b82f6",
+      bg: "#dbeafe",
+    },
+    shipped: {
+      label: "تم الشحن",
+      icon: Truck,
+      color: "#8b5cf6",
+      bg: "#ede9fe",
+    },
+    delivered: {
+      label: "تم التسليم",
+      icon: CheckCircle,
+      color: "#22c55e",
+      bg: "#dcfce7",
+    },
+    cancelled: {
+      label: "ملغي",
+      icon: XCircle,
+      color: "#ef4444",
+      bg: "#fee2e2",
+    },
   };
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     // تعبئة البيانات الحالية
     setFormData({
-      name: user.name || '',
-      phone: user.phone || '',
-      email: user.email || '',
-      city: user.addresses?.[0]?.city || '',
-      district: user.addresses?.[0]?.district || '',
-      street: user.addresses?.[0]?.street || '',
-      building: user.addresses?.[0]?.building || ''
+      name: user.name || "",
+      phone: user.phone || "",
+      email: user.email || "",
+      city: user.addresses?.[0]?.city || "",
+      district: user.addresses?.[0]?.district || "",
+      street: user.addresses?.[0]?.street || "",
+      building: user.addresses?.[0]?.building || "",
     });
   }, [user, navigate]);
 
   // جلب طلبات المستخدم
   useEffect(() => {
-    if (user && activeTab === 'orders') {
+    if (user && activeTab === "orders") {
       setOrdersLoading(true);
       getUserOrders(user.id)
         .then(setOrders)
@@ -82,17 +111,17 @@ const Account: React.FC = () => {
   }, [user, activeTab]);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR'
+    return new Intl.NumberFormat("ar-SA", {
+      style: "currency",
+      currency: "SAR",
     }).format(price);
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(date).toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -100,46 +129,48 @@ const Account: React.FC = () => {
     try {
       await signOut(auth);
       setUser(null);
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   };
 
   const handleSave = async () => {
     if (!user) return;
     setLoading(true);
-    
+
     try {
-      const userRef = doc(db, 'users', user.id);
+      const userRef = doc(db, "users", user.id);
       const updatedData = {
         name: formData.name,
         phone: formData.phone,
-        addresses: [{
-          fullName: formData.name,
-          phone: formData.phone,
-          city: formData.city,
-          district: formData.district,
-          street: formData.street,
-          building: formData.building
-        }]
+        addresses: [
+          {
+            fullName: formData.name,
+            phone: formData.phone,
+            city: formData.city,
+            district: formData.district,
+            street: formData.street,
+            building: formData.building,
+          },
+        ],
       };
-      
+
       await updateDoc(userRef, updatedData);
-      
+
       // تحديث الستور
       setUser({
         ...user,
         name: formData.name,
         phone: formData.phone,
-        addresses: [updatedData.addresses[0]]
+        addresses: [updatedData.addresses[0]],
       });
-      
+
       setEditing(false);
-      alert('تم حفظ البيانات بنجاح');
+      alert("تم حفظ البيانات بنجاح");
     } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('حدث خطأ أثناء حفظ البيانات');
+      console.error("Error updating profile:", error);
+      alert("حدث خطأ أثناء حفظ البيانات");
     } finally {
       setLoading(false);
     }
@@ -160,36 +191,36 @@ const Account: React.FC = () => {
                   <User size={40} />
                 </div>
                 <div className="user-details">
-                  <h3>{user.name || 'مستخدم'}</h3>
+                  <h3>{user.name || "مستخدم"}</h3>
                   <p>{user.email}</p>
                 </div>
               </div>
 
               <nav className="account-nav">
-                <button 
-                  className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('profile')}
+                <button
+                  className={`nav-item ${activeTab === "profile" ? "active" : ""}`}
+                  onClick={() => setActiveTab("profile")}
                 >
                   <User size={20} />
                   <span>الملف الشخصي</span>
                 </button>
-                <button 
-                  className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('orders')}
+                <button
+                  className={`nav-item ${activeTab === "orders" ? "active" : ""}`}
+                  onClick={() => setActiveTab("orders")}
                 >
                   <Package size={20} />
                   <span>طلباتي</span>
                 </button>
-                <button 
-                  className={`nav-item ${activeTab === 'addresses' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('addresses')}
+                <button
+                  className={`nav-item ${activeTab === "addresses" ? "active" : ""}`}
+                  onClick={() => setActiveTab("addresses")}
                 >
                   <MapPin size={20} />
                   <span>عناويني</span>
                 </button>
-                <button 
-                  className={`nav-item ${activeTab === 'wishlist' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('wishlist')}
+                <button
+                  className={`nav-item ${activeTab === "wishlist" ? "active" : ""}`}
+                  onClick={() => setActiveTab("wishlist")}
                 >
                   <Heart size={20} />
                   <span>المفضلة</span>
@@ -204,18 +235,29 @@ const Account: React.FC = () => {
             {/* Main Content */}
             <main className="account-content">
               {/* Profile Tab */}
-              {activeTab === 'profile' && (
+              {activeTab === "profile" && (
                 <div className="content-card">
                   <div className="card-header">
                     <h2>الملف الشخصي</h2>
                     {!editing ? (
-                      <button className="btn btn-outline" onClick={() => setEditing(true)}>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => setEditing(true)}
+                      >
                         <Edit size={18} />
                         تعديل
                       </button>
                     ) : (
-                      <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
-                        {loading ? <Loader className="spinner" size={18} /> : <Save size={18} />}
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleSave}
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <Loader className="spinner" size={18} />
+                        ) : (
+                          <Save size={18} />
+                        )}
                         حفظ
                       </button>
                     )}
@@ -230,7 +272,9 @@ const Account: React.FC = () => {
                           <input
                             type="text"
                             value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({ ...formData, name: e.target.value })
+                            }
                             disabled={!editing}
                           />
                         </div>
@@ -250,7 +294,12 @@ const Account: React.FC = () => {
                           <input
                             type="tel"
                             value={formData.phone}
-                            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                phone: e.target.value,
+                              })
+                            }
                             disabled={!editing}
                             placeholder="05xxxxxxxx"
                           />
@@ -266,7 +315,9 @@ const Account: React.FC = () => {
                           <input
                             type="text"
                             value={formData.city}
-                            onChange={(e) => setFormData({...formData, city: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({ ...formData, city: e.target.value })
+                            }
                             disabled={!editing}
                             placeholder="مثال: الرياض"
                           />
@@ -276,7 +327,12 @@ const Account: React.FC = () => {
                           <input
                             type="text"
                             value={formData.district}
-                            onChange={(e) => setFormData({...formData, district: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                district: e.target.value,
+                              })
+                            }
                             disabled={!editing}
                             placeholder="مثال: حي النرجس"
                           />
@@ -288,7 +344,12 @@ const Account: React.FC = () => {
                           <input
                             type="text"
                             value={formData.street}
-                            onChange={(e) => setFormData({...formData, street: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                street: e.target.value,
+                              })
+                            }
                             disabled={!editing}
                             placeholder="اسم الشارع"
                           />
@@ -298,7 +359,12 @@ const Account: React.FC = () => {
                           <input
                             type="text"
                             value={formData.building}
-                            onChange={(e) => setFormData({...formData, building: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                building: e.target.value,
+                              })
+                            }
                             disabled={!editing}
                             placeholder="رقم المبنى أو الشقة"
                           />
@@ -310,7 +376,7 @@ const Account: React.FC = () => {
               )}
 
               {/* Orders Tab */}
-              {activeTab === 'orders' && (
+              {activeTab === "orders" && (
                 <div className="content-card">
                   <div className="card-header">
                     <h2>طلباتي</h2>
@@ -325,7 +391,10 @@ const Account: React.FC = () => {
                       <ShoppingBag size={60} />
                       <h3>لا توجد طلبات</h3>
                       <p>لم تقم بأي طلبات بعد</p>
-                      <button className="btn btn-primary" onClick={() => navigate('/products')}>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => navigate("/products")}
+                      >
                         تسوق الآن
                       </button>
                     </div>
@@ -338,12 +407,19 @@ const Account: React.FC = () => {
                           <div key={order.id} className="order-card">
                             <div className="order-header">
                               <div className="order-info">
-                                <span className="order-number">طلب #{order.id.slice(-8)}</span>
-                                <span className="order-date">{formatDate(order.createdAt)}</span>
+                                <span className="order-number">
+                                  طلب #{order.id.slice(-8)}
+                                </span>
+                                <span className="order-date">
+                                  {formatDate(order.createdAt)}
+                                </span>
                               </div>
-                              <span 
+                              <span
                                 className="status-badge"
-                                style={{ background: status.bg, color: status.color }}
+                                style={{
+                                  background: status.bg,
+                                  color: status.color,
+                                }}
                               >
                                 <StatusIcon size={14} />
                                 {status.label}
@@ -353,13 +429,23 @@ const Account: React.FC = () => {
                               {order.items.map((item, idx) => (
                                 <div key={idx} className="order-item">
                                   {item.image && (
-                                    <img src={item.image} alt={item.name} className="item-image" />
+                                    <img
+                                      src={item.image}
+                                      alt={item.name}
+                                      className="item-image"
+                                    />
                                   )}
                                   <div className="item-details">
-                                    <span className="item-name">{item.name}</span>
-                                    <span className="item-qty">الكمية: {item.quantity}</span>
+                                    <span className="item-name">
+                                      {item.name}
+                                    </span>
+                                    <span className="item-qty">
+                                      الكمية: {item.quantity}
+                                    </span>
                                   </div>
-                                  <span className="item-price">{formatPrice(item.price * item.quantity)}</span>
+                                  <span className="item-price">
+                                    {formatPrice(item.price * item.quantity)}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -382,7 +468,7 @@ const Account: React.FC = () => {
               )}
 
               {/* Addresses Tab */}
-              {activeTab === 'addresses' && (
+              {activeTab === "addresses" && (
                 <div className="content-card">
                   <div className="card-header">
                     <h2>عناويني</h2>
@@ -394,9 +480,13 @@ const Account: React.FC = () => {
                           <MapPin size={20} />
                           <div className="address-details">
                             <strong>{addr.city}</strong>
-                            <p>{addr.district}، {addr.street}</p>
+                            <p>
+                              {addr.district}، {addr.street}
+                            </p>
                             {addr.building && <p>مبنى: {addr.building}</p>}
-                            <p><Phone size={14} /> {addr.phone}</p>
+                            <p>
+                              <Phone size={14} /> {addr.phone}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -412,19 +502,62 @@ const Account: React.FC = () => {
               )}
 
               {/* Wishlist Tab */}
-              {activeTab === 'wishlist' && (
+              {activeTab === "wishlist" && (
                 <div className="content-card">
                   <div className="card-header">
                     <h2>المفضلة</h2>
                   </div>
-                  <div className="empty-state">
-                    <Heart size={60} />
-                    <h3>القائمة فارغة</h3>
-                    <p>أضف منتجات للمفضلة لتجدها هنا</p>
-                    <button className="btn btn-primary" onClick={() => navigate('/products')}>
-                      تصفح المنتجات
-                    </button>
-                  </div>
+                  {wishlist.length === 0 ? (
+                    <div className="empty-state">
+                      <Heart size={60} />
+                      <h3>القائمة فارغة</h3>
+                      <p>أضف منتجات للمفضلة لتجدها هنا</p>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => navigate("/products")}
+                      >
+                        تصفح المنتجات
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="wishlist-grid">
+                      {wishlist.map((productId) => {
+                        const product = products.find(
+                          (p) => p.id === productId,
+                        );
+                        if (!product) return null;
+                        return (
+                          <div key={product.id} className="wishlist-item">
+                            <img
+                              src={product.images[0] || "/placeholder.jpg"}
+                              alt={product.name}
+                              className="wishlist-image"
+                            />
+                            <div className="wishlist-info">
+                              <h4
+                                onClick={() =>
+                                  navigate(`/product/${product.id}`)
+                                }
+                                style={{ cursor: "pointer" }}
+                              >
+                                {product.name}
+                              </h4>
+                              <span className="wishlist-price">
+                                {formatPrice(product.price)}
+                              </span>
+                            </div>
+                            <button
+                              className="wishlist-remove"
+                              onClick={() => toggleWishlist(product.id)}
+                              title="إزالة من المفضلة"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </main>

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
-import { useStore } from '../../store/useStore';
-import { getSettings } from '../../services/firestore';
-import './Cart.css';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
+import { useStore } from "../../store/useStore";
+import { getSettings } from "../../services/firestore";
+import "./Cart.css";
 
 interface ShippingSettings {
   freeShippingThreshold: number;
@@ -12,11 +12,18 @@ interface ShippingSettings {
 }
 
 const Cart: React.FC = () => {
-  const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useStore();
+  const {
+    cart,
+    removeFromCart,
+    updateQuantity,
+    getCartTotal,
+    clearCart,
+    categories,
+  } = useStore();
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
     freeShippingThreshold: 200,
     defaultShippingCost: 25,
-    enableFreeShipping: true
+    enableFreeShipping: true,
   });
 
   // جلب إعدادات الشحن
@@ -28,16 +35,16 @@ const Cart: React.FC = () => {
           setShippingSettings(settings.shipping);
         }
       } catch (error) {
-        console.error('Error fetching settings:', error);
+        console.error("Error fetching settings:", error);
       }
     };
     fetchSettings();
   }, []);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR'
+    return new Intl.NumberFormat("ar-SA", {
+      style: "currency",
+      currency: "SAR",
     }).format(price);
   };
 
@@ -59,9 +66,11 @@ const Cart: React.FC = () => {
   }
 
   const subtotal = getCartTotal();
-  const shipping = shippingSettings.enableFreeShipping && subtotal >= shippingSettings.freeShippingThreshold
-    ? 0 
-    : shippingSettings.defaultShippingCost;
+  const shipping =
+    shippingSettings.enableFreeShipping &&
+    subtotal >= shippingSettings.freeShippingThreshold
+      ? 0
+      : shippingSettings.defaultShippingCost;
   const total = subtotal + shipping;
 
   return (
@@ -77,31 +86,44 @@ const Cart: React.FC = () => {
           <div className="cart-items">
             {cart.map((item) => (
               <div key={item.product.id} className="cart-item">
-                <img 
-                  src={item.product.images[0]} 
+                <img
+                  src={
+                    item.product.images?.[0] ||
+                    "https://via.placeholder.com/100"
+                  }
                   alt={item.product.name}
                   className="item-image"
                 />
                 <div className="item-details">
-                  <Link to={`/product/${item.product.id}`} className="item-name">
+                  <Link
+                    to={`/product/${item.product.id}`}
+                    className="item-name"
+                  >
                     {item.product.name}
                   </Link>
-                  <span className="item-category">{item.product.category}</span>
+                  <span className="item-category">
+                    {categories.find((c) => c.id === item.product.category)
+                      ?.name || item.product.category}
+                  </span>
                   <div className="item-price-mobile">
                     {formatPrice(item.product.price)}
                   </div>
                 </div>
                 <div className="item-quantity">
-                  <button 
+                  <button
                     className="qty-btn"
-                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                    onClick={() =>
+                      updateQuantity(item.product.id, item.quantity - 1)
+                    }
                   >
                     <Minus size={16} />
                   </button>
                   <span className="qty-value">{item.quantity}</span>
-                  <button 
+                  <button
                     className="qty-btn"
-                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                    onClick={() =>
+                      updateQuantity(item.product.id, item.quantity + 1)
+                    }
                   >
                     <Plus size={16} />
                   </button>
@@ -109,7 +131,7 @@ const Cart: React.FC = () => {
                 <div className="item-price">
                   {formatPrice(item.product.price * item.quantity)}
                 </div>
-                <button 
+                <button
                   className="remove-btn"
                   onClick={() => removeFromCart(item.product.id)}
                 >
@@ -123,7 +145,10 @@ const Cart: React.FC = () => {
                 <ArrowRight size={18} />
                 متابعة التسوق
               </Link>
-              <button className="btn btn-outline btn-danger" onClick={clearCart}>
+              <button
+                className="btn btn-outline btn-danger"
+                onClick={clearCart}
+              >
                 <Trash2 size={18} />
                 إفراغ السلة
               </button>
@@ -133,25 +158,27 @@ const Cart: React.FC = () => {
           {/* Cart Summary */}
           <div className="cart-summary">
             <h3>ملخص الطلب</h3>
-            
+
             <div className="summary-row">
               <span>المجموع الفرعي</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
-            
+
             <div className="summary-row">
               <span>الشحن</span>
-              <span className={shipping === 0 ? 'free' : ''}>
-                {shipping === 0 ? 'مجاني' : formatPrice(shipping)}
+              <span className={shipping === 0 ? "free" : ""}>
+                {shipping === 0 ? "مجاني" : formatPrice(shipping)}
               </span>
             </div>
 
             {shipping > 0 && shippingSettings.enableFreeShipping && (
               <div className="free-shipping-notice">
-                أضف {formatPrice(shippingSettings.freeShippingThreshold - subtotal)} للحصول على شحن مجاني
+                أضف{" "}
+                {formatPrice(shippingSettings.freeShippingThreshold - subtotal)}{" "}
+                للحصول على شحن مجاني
               </div>
             )}
-            
+
             <div className="summary-total">
               <span>الإجمالي</span>
               <span>{formatPrice(total)}</span>

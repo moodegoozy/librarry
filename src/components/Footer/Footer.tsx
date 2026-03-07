@@ -1,9 +1,9 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Facebook, 
-  Twitter, 
-  Instagram, 
+import React from "react";
+import { Link } from "react-router-dom";
+import {
+  Facebook,
+  Twitter,
+  Instagram,
   Youtube,
   MapPin,
   Phone,
@@ -11,9 +11,9 @@ import {
   CreditCard,
   Truck,
   Shield,
-  Headphones
-} from 'lucide-react';
-import './Footer.css';
+  Headphones,
+} from "lucide-react";
+import "./Footer.css";
 
 const Footer: React.FC = () => {
   return (
@@ -62,13 +62,22 @@ const Footer: React.FC = () => {
             <div className="footer-section">
               <h3 className="footer-title">جبوري للإلكترونيات</h3>
               <p className="footer-about">
-                متجرك الأول للإلكترونيات والأجهزة الذكية. نقدم لك أفضل المنتجات بأفضل الأسعار مع ضمان الجودة وخدمة ما بعد البيع.
+                متجرك الأول للإلكترونيات والأجهزة الذكية. نقدم لك أفضل المنتجات
+                بأفضل الأسعار مع ضمان الجودة وخدمة ما بعد البيع.
               </p>
               <div className="footer-social">
-                <a href="#" className="social-link"><Facebook size={20} /></a>
-                <a href="#" className="social-link"><Twitter size={20} /></a>
-                <a href="#" className="social-link"><Instagram size={20} /></a>
-                <a href="#" className="social-link"><Youtube size={20} /></a>
+                <a href="#" className="social-link">
+                  <Facebook size={20} />
+                </a>
+                <a href="#" className="social-link">
+                  <Twitter size={20} />
+                </a>
+                <a href="#" className="social-link">
+                  <Instagram size={20} />
+                </a>
+                <a href="#" className="social-link">
+                  <Youtube size={20} />
+                </a>
               </div>
             </div>
 
@@ -76,12 +85,24 @@ const Footer: React.FC = () => {
             <div className="footer-section">
               <h3 className="footer-title">روابط سريعة</h3>
               <ul className="footer-links">
-                <li><Link to="/about">من نحن</Link></li>
-                <li><Link to="/contact">اتصل بنا</Link></li>
-                <li><Link to="/faq">الأسئلة الشائعة</Link></li>
-                <li><Link to="/shipping">سياسة الشحن</Link></li>
-                <li><Link to="/returns">سياسة الإرجاع</Link></li>
-                <li><Link to="/privacy">سياسة الخصوصية</Link></li>
+                <li>
+                  <Link to="/about">من نحن</Link>
+                </li>
+                <li>
+                  <Link to="/contact">اتصل بنا</Link>
+                </li>
+                <li>
+                  <Link to="/faq">الأسئلة الشائعة</Link>
+                </li>
+                <li>
+                  <Link to="/shipping">سياسة الشحن</Link>
+                </li>
+                <li>
+                  <Link to="/returns">سياسة الإرجاع</Link>
+                </li>
+                <li>
+                  <Link to="/privacy">سياسة الخصوصية</Link>
+                </li>
               </ul>
             </div>
 
@@ -89,12 +110,24 @@ const Footer: React.FC = () => {
             <div className="footer-section">
               <h3 className="footer-title">التصنيفات</h3>
               <ul className="footer-links">
-                <li><Link to="/products?category=phones">الجوالات</Link></li>
-                <li><Link to="/products?category=laptops">اللابتوبات</Link></li>
-                <li><Link to="/products?category=tvs">التلفزيونات</Link></li>
-                <li><Link to="/products?category=gaming">الألعاب</Link></li>
-                <li><Link to="/products?category=audio">السماعات</Link></li>
-                <li><Link to="/products?category=accessories">الإكسسوارات</Link></li>
+                <li>
+                  <Link to="/products?category=phones">الجوالات</Link>
+                </li>
+                <li>
+                  <Link to="/products?category=laptops">اللابتوبات</Link>
+                </li>
+                <li>
+                  <Link to="/products?category=tvs">التلفزيونات</Link>
+                </li>
+                <li>
+                  <Link to="/products?category=gaming">الألعاب</Link>
+                </li>
+                <li>
+                  <Link to="/products?category=audio">السماعات</Link>
+                </li>
+                <li>
+                  <Link to="/products?category=accessories">الإكسسوارات</Link>
+                </li>
               </ul>
             </div>
 
@@ -123,7 +156,9 @@ const Footer: React.FC = () => {
       {/* Bottom Bar */}
       <div className="footer-bottom">
         <div className="container">
-          <p>© 2024 جبوري للإلكترونيات. جميع الحقوق محفوظة.</p>
+          <p>
+            © {new Date().getFullYear()} جبوري للإلكترونيات. جميع الحقوق محفوظة.
+          </p>
         </div>
       </div>
     </footer>

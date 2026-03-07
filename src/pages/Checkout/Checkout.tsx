@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  MapPin, 
-  CreditCard, 
-  Truck, 
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  MapPin,
+  CreditCard,
+  Truck,
   ShoppingBag,
   ArrowRight,
   Check,
   Loader,
-  AlertCircle
-} from 'lucide-react';
-import { useStore } from '../../store/useStore';
-import { addOrder, getSettings } from '../../services/firestore';
-import Header from '../../components/Header/Header';
-import Footer from '../../components/Footer/Footer';
-import './Checkout.css';
+  AlertCircle,
+} from "lucide-react";
+import { useStore } from "../../store/useStore";
+import {
+  addOrder,
+  getSettings,
+  decrementStock,
+} from "../../services/firestore";
+import Header from "../../components/Header/Header";
+import Footer from "../../components/Footer/Footer";
+import "./Checkout.css";
 
 interface ShippingSettings {
   freeShippingThreshold: number;
@@ -34,27 +38,28 @@ const Checkout: React.FC = () => {
   const { cart, user, clearCart, getCartTotal } = useStore();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [orderPlaced, setOrderPlaced] = useState(false);
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
     freeShippingThreshold: 200,
     defaultShippingCost: 25,
     enableFreeShipping: true,
-    estimatedDays: '3-5'
+    estimatedDays: "3-5",
   });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    { id: 'cash', name: 'الدفع عند الاستلام', enabled: true },
-    { id: 'bank', name: 'التحويل البنكي', enabled: true },
-    { id: 'card', name: 'بطاقة ائتمان', enabled: false }
+    { id: "cash", name: "الدفع عند الاستلام", enabled: true },
+    { id: "bank", name: "التحويل البنكي", enabled: true },
+    { id: "card", name: "بطاقة ائتمان", enabled: false },
   ]);
-  
+
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    city: '',
-    district: '',
-    street: '',
-    building: '',
-    notes: '',
-    paymentMethod: 'cash'
+    fullName: "",
+    phone: "",
+    city: "",
+    district: "",
+    street: "",
+    building: "",
+    notes: "",
+    paymentMethod: "cash",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -73,7 +78,7 @@ const Checkout: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching settings:', error);
+        console.error("Error fetching settings:", error);
       }
     };
     fetchSettings();
@@ -82,47 +87,50 @@ const Checkout: React.FC = () => {
   // تعبئة بيانات المستخدم
   useEffect(() => {
     if (user) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        fullName: user.name || '',
-        phone: user.phone || '',
-        city: user.addresses?.[0]?.city || '',
-        district: user.addresses?.[0]?.district || '',
-        street: user.addresses?.[0]?.street || '',
-        building: user.addresses?.[0]?.building || ''
+        fullName: user.name || "",
+        phone: user.phone || "",
+        city: user.addresses?.[0]?.city || "",
+        district: user.addresses?.[0]?.district || "",
+        street: user.addresses?.[0]?.street || "",
+        building: user.addresses?.[0]?.building || "",
       }));
     }
   }, [user]);
 
   // التحقق من السلة
   useEffect(() => {
-    if (cart.length === 0) {
-      navigate('/cart');
+    if (cart.length === 0 && !orderPlaced) {
+      navigate("/cart");
     }
-  }, [cart, navigate]);
+  }, [cart, navigate, orderPlaced]);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR'
+    return new Intl.NumberFormat("ar-SA", {
+      style: "currency",
+      currency: "SAR",
     }).format(price);
   };
 
   const subtotal = getCartTotal();
-  const shipping = shippingSettings.enableFreeShipping && subtotal >= shippingSettings.freeShippingThreshold 
-    ? 0 
-    : shippingSettings.defaultShippingCost;
+  const shipping =
+    shippingSettings.enableFreeShipping &&
+    subtotal >= shippingSettings.freeShippingThreshold
+      ? 0
+      : shippingSettings.defaultShippingCost;
   const total = subtotal + shipping;
 
   const validateStep1 = () => {
     const newErrors: Record<string, string> = {};
-    
-    if (!formData.fullName.trim()) newErrors.fullName = 'الاسم مطلوب';
-    if (!formData.phone.trim()) newErrors.phone = 'رقم الجوال مطلوب';
-    else if (!/^05\d{8}$/.test(formData.phone)) newErrors.phone = 'رقم جوال غير صحيح';
-    if (!formData.city.trim()) newErrors.city = 'المدينة مطلوبة';
-    if (!formData.district.trim()) newErrors.district = 'الحي مطلوب';
-    if (!formData.street.trim()) newErrors.street = 'الشارع مطلوب';
+
+    if (!formData.fullName.trim()) newErrors.fullName = "الاسم مطلوب";
+    if (!formData.phone.trim()) newErrors.phone = "رقم الجوال مطلوب";
+    else if (!/^05\d{8}$/.test(formData.phone))
+      newErrors.phone = "رقم جوال غير صحيح";
+    if (!formData.city.trim()) newErrors.city = "المدينة مطلوبة";
+    if (!formData.district.trim()) newErrors.district = "الحي مطلوب";
+    if (!formData.street.trim()) newErrors.street = "الشارع مطلوب";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -136,50 +144,77 @@ const Checkout: React.FC = () => {
 
   const handleSubmitOrder = async () => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
 
     setLoading(true);
-    
+
     try {
+      // التحقق من توفر المخزون قبل إرسال الطلب
+      const { products } = useStore.getState();
+      const stockErrors: string[] = [];
+      for (const item of cart) {
+        const currentProduct = products.find((p) => p.id === item.product.id);
+        if (currentProduct && currentProduct.stock < item.quantity) {
+          stockErrors.push(
+            `${item.product.name}: متوفر ${currentProduct.stock} فقط (طلبت ${item.quantity})`,
+          );
+        }
+      }
+      if (stockErrors.length > 0) {
+        alert(
+          "بعض المنتجات غير متوفرة بالكمية المطلوبة:\n" +
+            stockErrors.join("\n"),
+        );
+        setLoading(false);
+        return;
+      }
+
       const orderData = {
         userId: user.id,
         customer: formData.fullName,
         email: user.email,
         phone: formData.phone,
-        items: cart.map(item => ({
+        items: cart.map((item) => ({
           productId: item.product.id,
           name: item.product.name,
           quantity: item.quantity,
           price: item.product.price,
-          image: item.product.images[0] || ''
+          image: item.product.images[0] || "",
         })),
         total: total,
         subtotal: subtotal,
         shippingCost: shipping,
-        status: 'pending' as const,
+        status: "pending" as const,
         paymentMethod: formData.paymentMethod,
-        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ''}`,
+        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ""}`,
         address: {
           fullName: formData.fullName,
           phone: formData.phone,
           city: formData.city,
           district: formData.district,
           street: formData.street,
-          building: formData.building
+          building: formData.building,
         },
         notes: formData.notes,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       await addOrder(orderData);
+
+      // تخفيض المخزون ذرياً بعد إتمام الطلب
+      for (const item of cart) {
+        await decrementStock(item.product.id, item.quantity);
+      }
+
+      setOrderPlaced(true);
       clearCart();
       setStep(3);
     } catch (error) {
-      console.error('Error creating order:', error);
-      alert('حدث خطأ أثناء إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+      console.error("Error creating order:", error);
+      alert("حدث خطأ أثناء إنشاء الطلب. يرجى المحاولة مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -214,17 +249,25 @@ const Checkout: React.FC = () => {
         <div className="container">
           {/* خطوات الطلب */}
           <div className="checkout-steps">
-            <div className={`step ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`}>
-              <span className="step-number">{step > 1 ? <Check size={16} /> : '1'}</span>
+            <div
+              className={`step ${step >= 1 ? "active" : ""} ${step > 1 ? "completed" : ""}`}
+            >
+              <span className="step-number">
+                {step > 1 ? <Check size={16} /> : "1"}
+              </span>
               <span className="step-label">العنوان</span>
             </div>
             <div className="step-line"></div>
-            <div className={`step ${step >= 2 ? 'active' : ''} ${step > 2 ? 'completed' : ''}`}>
-              <span className="step-number">{step > 2 ? <Check size={16} /> : '2'}</span>
+            <div
+              className={`step ${step >= 2 ? "active" : ""} ${step > 2 ? "completed" : ""}`}
+            >
+              <span className="step-number">
+                {step > 2 ? <Check size={16} /> : "2"}
+              </span>
               <span className="step-label">الدفع</span>
             </div>
             <div className="step-line"></div>
-            <div className={`step ${step >= 3 ? 'active' : ''}`}>
+            <div className={`step ${step >= 3 ? "active" : ""}`}>
               <span className="step-number">3</span>
               <span className="step-label">التأكيد</span>
             </div>
@@ -247,22 +290,38 @@ const Checkout: React.FC = () => {
                           <input
                             type="text"
                             value={formData.fullName}
-                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                fullName: e.target.value,
+                              })
+                            }
                             placeholder="الاسم الكامل"
-                            className={errors.fullName ? 'error' : ''}
+                            className={errors.fullName ? "error" : ""}
                           />
-                          {errors.fullName && <span className="error-text">{errors.fullName}</span>}
+                          {errors.fullName && (
+                            <span className="error-text">
+                              {errors.fullName}
+                            </span>
+                          )}
                         </div>
                         <div className="form-group">
                           <label>رقم الجوال *</label>
                           <input
                             type="tel"
                             value={formData.phone}
-                            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                phone: e.target.value,
+                              })
+                            }
                             placeholder="05xxxxxxxx"
-                            className={errors.phone ? 'error' : ''}
+                            className={errors.phone ? "error" : ""}
                           />
-                          {errors.phone && <span className="error-text">{errors.phone}</span>}
+                          {errors.phone && (
+                            <span className="error-text">{errors.phone}</span>
+                          )}
                         </div>
                       </div>
                       <div className="form-row">
@@ -271,22 +330,35 @@ const Checkout: React.FC = () => {
                           <input
                             type="text"
                             value={formData.city}
-                            onChange={(e) => setFormData({...formData, city: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({ ...formData, city: e.target.value })
+                            }
                             placeholder="مثال: الرياض"
-                            className={errors.city ? 'error' : ''}
+                            className={errors.city ? "error" : ""}
                           />
-                          {errors.city && <span className="error-text">{errors.city}</span>}
+                          {errors.city && (
+                            <span className="error-text">{errors.city}</span>
+                          )}
                         </div>
                         <div className="form-group">
                           <label>الحي *</label>
                           <input
                             type="text"
                             value={formData.district}
-                            onChange={(e) => setFormData({...formData, district: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                district: e.target.value,
+                              })
+                            }
                             placeholder="مثال: حي النرجس"
-                            className={errors.district ? 'error' : ''}
+                            className={errors.district ? "error" : ""}
                           />
-                          {errors.district && <span className="error-text">{errors.district}</span>}
+                          {errors.district && (
+                            <span className="error-text">
+                              {errors.district}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="form-row">
@@ -295,18 +367,30 @@ const Checkout: React.FC = () => {
                           <input
                             type="text"
                             value={formData.street}
-                            onChange={(e) => setFormData({...formData, street: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                street: e.target.value,
+                              })
+                            }
                             placeholder="اسم الشارع"
-                            className={errors.street ? 'error' : ''}
+                            className={errors.street ? "error" : ""}
                           />
-                          {errors.street && <span className="error-text">{errors.street}</span>}
+                          {errors.street && (
+                            <span className="error-text">{errors.street}</span>
+                          )}
                         </div>
                         <div className="form-group">
                           <label>رقم المبنى (اختياري)</label>
                           <input
                             type="text"
                             value={formData.building}
-                            onChange={(e) => setFormData({...formData, building: e.target.value})}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                building: e.target.value,
+                              })
+                            }
                             placeholder="رقم المبنى أو الشقة"
                           />
                         </div>
@@ -315,7 +399,9 @@ const Checkout: React.FC = () => {
                         <label>ملاحظات إضافية (اختياري)</label>
                         <textarea
                           value={formData.notes}
-                          onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                          onChange={(e) =>
+                            setFormData({ ...formData, notes: e.target.value })
+                          }
                           placeholder="أي تعليمات خاصة للتوصيل..."
                           rows={3}
                         />
@@ -328,7 +414,10 @@ const Checkout: React.FC = () => {
                       <ArrowRight size={18} />
                       العودة للسلة
                     </Link>
-                    <button className="btn btn-primary" onClick={handleNextStep}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleNextStep}
+                    >
                       التالي: طريقة الدفع
                     </button>
                   </div>
@@ -345,49 +434,78 @@ const Checkout: React.FC = () => {
                     </div>
                     <div className="form-body">
                       <div className="payment-options">
-                        {paymentMethods.filter(m => m.enabled).map(method => (
-                          <label key={method.id} className="payment-option">
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              value={method.id}
-                              checked={formData.paymentMethod === method.id}
-                              onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
-                            />
-                            <div className="option-content">
-                              {method.id === 'cash' && <Truck size={24} />}
-                              {method.id === 'bank' && <CreditCard size={24} />}
-                              {method.id === 'card' && <CreditCard size={24} />}
-                              <div>
-                                <strong>{method.name}</strong>
-                                {method.id === 'cash' && <span>ادفع نقداً عند استلام طلبك</span>}
-                                {method.id === 'bank' && <span>تحويل إلى الحساب البنكي</span>}
-                                {method.id === 'card' && <span>Visa, Mastercard, Mada</span>}
+                        {paymentMethods
+                          .filter((m) => m.enabled)
+                          .map((method) => (
+                            <label key={method.id} className="payment-option">
+                              <input
+                                type="radio"
+                                name="paymentMethod"
+                                value={method.id}
+                                checked={formData.paymentMethod === method.id}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    paymentMethod: e.target.value,
+                                  })
+                                }
+                              />
+                              <div className="option-content">
+                                {method.id === "cash" && <Truck size={24} />}
+                                {method.id === "bank" && (
+                                  <CreditCard size={24} />
+                                )}
+                                {method.id === "card" && (
+                                  <CreditCard size={24} />
+                                )}
+                                <div>
+                                  <strong>{method.name}</strong>
+                                  {method.id === "cash" && (
+                                    <span>ادفع نقداً عند استلام طلبك</span>
+                                  )}
+                                  {method.id === "bank" && (
+                                    <span>تحويل إلى الحساب البنكي</span>
+                                  )}
+                                  {method.id === "card" && (
+                                    <span>Visa, Mastercard, Mada</span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </label>
-                        ))}
+                            </label>
+                          ))}
                       </div>
 
-                      {formData.paymentMethod === 'bank' && (
+                      {formData.paymentMethod === "bank" && (
                         <div className="bank-details">
                           <h4>بيانات الحساب البنكي</h4>
-                          <p><strong>البنك:</strong> البنك الأهلي</p>
-                          <p><strong>اسم الحساب:</strong> جبوري للإلكترونيات</p>
-                          <p><strong>رقم الآيبان:</strong> SA0000000000000000000000</p>
-                          <p className="note">يرجى إرسال إيصال التحويل عبر الواتساب</p>
+                          <p>
+                            <strong>البنك:</strong> البنك الأهلي
+                          </p>
+                          <p>
+                            <strong>اسم الحساب:</strong> جبوري للإلكترونيات
+                          </p>
+                          <p>
+                            <strong>رقم الآيبان:</strong>{" "}
+                            SA0000000000000000000000
+                          </p>
+                          <p className="note">
+                            يرجى إرسال إيصال التحويل عبر الواتساب
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className="form-actions">
-                    <button className="btn btn-outline" onClick={() => setStep(1)}>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => setStep(1)}
+                    >
                       <ArrowRight size={18} />
                       السابق
                     </button>
-                    <button 
-                      className="btn btn-primary" 
+                    <button
+                      className="btn btn-primary"
                       onClick={handleSubmitOrder}
                       disabled={loading}
                     >
@@ -408,14 +526,24 @@ const Checkout: React.FC = () => {
               <div className="order-summary">
                 <h3>ملخص الطلب</h3>
                 <div className="summary-items">
-                  {cart.map(item => (
+                  {cart.map((item) => (
                     <div key={item.product.id} className="summary-item">
-                      <img src={item.product.images[0]} alt={item.product.name} />
+                      <img
+                        src={
+                          item.product.images?.[0] ||
+                          "https://via.placeholder.com/80"
+                        }
+                        alt={item.product.name}
+                      />
                       <div className="item-info">
                         <span className="item-name">{item.product.name}</span>
-                        <span className="item-qty">الكمية: {item.quantity}</span>
+                        <span className="item-qty">
+                          الكمية: {item.quantity}
+                        </span>
                       </div>
-                      <span className="item-price">{formatPrice(item.product.price * item.quantity)}</span>
+                      <span className="item-price">
+                        {formatPrice(item.product.price * item.quantity)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -426,8 +554,8 @@ const Checkout: React.FC = () => {
                   </div>
                   <div className="summary-row">
                     <span>الشحن</span>
-                    <span className={shipping === 0 ? 'free' : ''}>
-                      {shipping === 0 ? 'مجاني' : formatPrice(shipping)}
+                    <span className={shipping === 0 ? "free" : ""}>
+                      {shipping === 0 ? "مجاني" : formatPrice(shipping)}
                     </span>
                   </div>
                   <div className="summary-row total">
@@ -437,7 +565,9 @@ const Checkout: React.FC = () => {
                 </div>
                 <div className="shipping-info">
                   <Truck size={18} />
-                  <span>التوصيل خلال {shippingSettings.estimatedDays} أيام عمل</span>
+                  <span>
+                    التوصيل خلال {shippingSettings.estimatedDays} أيام عمل
+                  </span>
                 </div>
               </div>
             </div>
@@ -451,7 +581,7 @@ const Checkout: React.FC = () => {
               </div>
               <h1>تم استلام طلبك بنجاح!</h1>
               <p>شكراً لك على طلبك. سنتواصل معك قريباً لتأكيد الطلب.</p>
-              
+
               <div className="order-actions">
                 <Link to="/account" className="btn btn-primary">
                   <ShoppingBag size={18} />

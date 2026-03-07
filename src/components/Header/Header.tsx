@@ -1,33 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  ShoppingCart, 
-  User, 
-  Menu, 
-  X, 
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Search,
+  ShoppingCart,
+  User,
+  Menu,
+  X,
   Heart,
   Phone,
-  ChevronDown
-} from 'lucide-react';
-import { useStore } from '../../store/useStore';
-import { subscribeToCategories } from '../../services/firestore';
-import logoImage from '../../assets/logo.jpeg';
-import './Header.css';
+  ChevronDown,
+} from "lucide-react";
+import { useStore } from "../../store/useStore";
+import logoImage from "../../assets/logo.jpeg";
+import "./Header.css";
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { getCartCount, user, searchQuery, setSearchQuery, categories, setCategories } = useStore();
+  const { getCartCount, user, searchQuery, setSearchQuery, categories } =
+    useStore();
   const navigate = useNavigate();
-
-  // الاشتراك في التصنيفات من Firestore
-  useEffect(() => {
-    const unsubscribe = subscribeToCategories((firestoreCategories) => {
-      setCategories(firestoreCategories);
-    });
-    return () => unsubscribe();
-  }, [setCategories]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +44,7 @@ const Header: React.FC = () => {
             </div>
             <div className="header-links">
               {user ? (
-                <Link to={user.role === 'admin' ? '/dashboard' : '/account'}>
+                <Link to={user.role === "admin" ? "/dashboard" : "/account"}>
                   حسابي
                 </Link>
               ) : (
@@ -72,7 +64,7 @@ const Header: React.FC = () => {
         <div className="container">
           <div className="header-main-content">
             {/* Mobile Menu Toggle */}
-            <button 
+            <button
               className="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -81,7 +73,11 @@ const Header: React.FC = () => {
 
             {/* Logo */}
             <Link to="/" className="logo">
-              <img src={logoImage} alt="جبوري للإلكترونيات" className="logo-image" />
+              <img
+                src={logoImage}
+                alt="جبوري للإلكترونيات"
+                className="logo-image"
+              />
             </Link>
 
             {/* Search Bar */}
@@ -99,7 +95,7 @@ const Header: React.FC = () => {
 
             {/* Header Actions */}
             <div className="header-actions">
-              <button 
+              <button
                 className="search-toggle"
                 onClick={() => setSearchOpen(!searchOpen)}
               >
@@ -117,7 +113,7 @@ const Header: React.FC = () => {
                 )}
               </Link>
 
-              <Link to={user ? '/account' : '/login'} className="action-btn">
+              <Link to={user ? "/account" : "/login"} className="action-btn">
                 <User size={22} />
               </Link>
             </div>
@@ -144,11 +140,13 @@ const Header: React.FC = () => {
       )}
 
       {/* Navigation */}
-      <nav className={`nav ${mobileMenuOpen ? 'nav-open' : ''}`}>
+      <nav className={`nav ${mobileMenuOpen ? "nav-open" : ""}`}>
         <div className="container">
           <ul className="nav-menu">
             <li className="nav-item">
-              <Link to="/" className="nav-link">الرئيسية</Link>
+              <Link to="/" className="nav-link">
+                الرئيسية
+              </Link>
             </li>
             <li className="nav-item has-dropdown">
               <span className="nav-link">
@@ -156,22 +154,32 @@ const Header: React.FC = () => {
               </span>
               <div className="dropdown-menu">
                 {categories.length > 0 ? (
-                  categories.map(cat => (
-                    <Link key={cat.id} to={`/products?category=${cat.id}`}>{cat.name}</Link>
+                  categories.map((cat) => (
+                    <Link key={cat.id} to={`/products?category=${cat.id}`}>
+                      {cat.name}
+                    </Link>
                   ))
                 ) : (
-                  <span style={{ padding: '10px', color: 'var(--gray)' }}>لا توجد تصنيفات</span>
+                  <span style={{ padding: "10px", color: "var(--gray)" }}>
+                    لا توجد تصنيفات
+                  </span>
                 )}
               </div>
             </li>
             <li className="nav-item">
-              <Link to="/products?featured=true" className="nav-link">العروض</Link>
+              <Link to="/products?featured=true" className="nav-link">
+                العروض
+              </Link>
             </li>
             <li className="nav-item">
-              <Link to="/products?new=true" className="nav-link">وصل حديثاً</Link>
+              <Link to="/products?new=true" className="nav-link">
+                وصل حديثاً
+              </Link>
             </li>
             <li className="nav-item">
-              <Link to="/contact" className="nav-link">اتصل بنا</Link>
+              <Link to="/contact" className="nav-link">
+                اتصل بنا
+              </Link>
             </li>
           </ul>
         </div>
@@ -179,7 +187,7 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="mobile-overlay"
           onClick={() => setMobileMenuOpen(false)}
         />

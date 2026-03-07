@@ -1,67 +1,81 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
-import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../../config/firebase';
-import { useStore } from '../../store/useStore';
-import '../Login/Login.css';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth } from "../../config/firebase";
+import { useStore } from "../../store/useStore";
+import { createOrUpdateUser, getUserById } from "../../services/firestore";
+import "../Login/Login.css";
 
 const Register: React.FC = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const { setUser } = useStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     if (password !== confirmPassword) {
-      setError('كلمتا المرور غير متطابقتين');
+      setError("كلمتا المرور غير متطابقتين");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       setLoading(false);
       return;
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       const firebaseUser = userCredential.user;
-      
+
       // تحديث اسم المستخدم
       await updateProfile(firebaseUser, { displayName: name });
-      
-      setUser({
+
+      const userData = {
         id: firebaseUser.uid,
-        email: firebaseUser.email || '',
+        email: firebaseUser.email || "",
         name: name,
-        role: 'customer',
+        role: "customer" as const,
         addresses: [],
-        createdAt: new Date()
-      });
-      
-      navigate('/');
+        createdAt: new Date(),
+      };
+
+      // حفظ المستخدم في Firestore
+      await createOrUpdateUser(userData);
+      setUser(userData);
+
+      navigate("/");
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
-      if (firebaseError.code === 'auth/email-already-in-use') {
-        setError('البريد الإلكتروني مستخدم بالفعل');
-      } else if (firebaseError.code === 'auth/invalid-email') {
-        setError('البريد الإلكتروني غير صالح');
-      } else if (firebaseError.code === 'auth/weak-password') {
-        setError('كلمة المرور ضعيفة جداً');
+      if (firebaseError.code === "auth/email-already-in-use") {
+        setError("البريد الإلكتروني مستخدم بالفعل");
+      } else if (firebaseError.code === "auth/invalid-email") {
+        setError("البريد الإلكتروني غير صالح");
+      } else if (firebaseError.code === "auth/weak-password") {
+        setError("كلمة المرور ضعيفة جداً");
       } else {
-        setError('حدث خطأ أثناء إنشاء الحساب');
+        setError("حدث خطأ أثناء إنشاء الحساب");
       }
     } finally {
       setLoading(false);
@@ -70,29 +84,41 @@ const Register: React.FC = () => {
 
   const handleGoogleSignup = async () => {
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;
-      
-      setUser({
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: firebaseUser.displayName || 'مستخدم',
-        role: 'customer',
-        addresses: [],
-        createdAt: new Date()
-      });
-      
-      navigate('/');
+
+      // تحقق إذا كان المستخدم موجود مسبقاً (لحماية صلاحيات الأدمن)
+      const existingUser = await getUserById(firebaseUser.uid);
+
+      if (existingUser) {
+        // مستخدم موجود - استخدم بياناته الحالية بدون تغيير الدور
+        setUser(existingUser);
+      } else {
+        // مستخدم جديد - أنشئ حساب بدور عميل
+        const userData = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          name: firebaseUser.displayName || "مستخدم",
+          role: "customer" as const,
+          addresses: [],
+          createdAt: new Date(),
+        };
+
+        await createOrUpdateUser(userData);
+        setUser(userData);
+      }
+
+      navigate("/");
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
-      if (firebaseError.code === 'auth/popup-closed-by-user') {
-        setError('تم إلغاء التسجيل');
+      if (firebaseError.code === "auth/popup-closed-by-user") {
+        setError("تم إلغاء التسجيل");
       } else {
-        setError('حدث خطأ أثناء التسجيل بـ Google');
+        setError("حدث خطأ أثناء التسجيل بـ Google");
       }
     } finally {
       setLoading(false);
@@ -112,11 +138,7 @@ const Register: React.FC = () => {
             <p>أنشئ حسابك للاستفادة من جميع المميزات</p>
           </div>
 
-          {error && (
-            <div className="alert alert-error">
-              {error}
-            </div>
-          )}
+          {error && <div className="alert alert-error">{error}</div>}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -154,14 +176,14 @@ const Register: React.FC = () => {
               <div className="input-icon">
                 <Lock size={20} />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   className="form-input"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <button 
+                <button
                   type="button"
                   className="toggle-password"
                   onClick={() => setShowPassword(!showPassword)}
@@ -176,7 +198,7 @@ const Register: React.FC = () => {
               <div className="input-icon">
                 <Lock size={20} />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   className="form-input"
                   placeholder="••••••••"
                   value={confirmPassword}
@@ -186,12 +208,12 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn btn-primary btn-lg btn-block"
               disabled={loading}
             >
-              {loading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}
+              {loading ? "جاري إنشاء الحساب..." : "إنشاء حساب"}
             </button>
           </form>
 
@@ -200,7 +222,7 @@ const Register: React.FC = () => {
           </div>
 
           <div className="social-login">
-            <button 
+            <button
               type="button"
               className="social-btn google"
               onClick={handleGoogleSignup}
@@ -213,8 +235,7 @@ const Register: React.FC = () => {
 
           <div className="login-footer">
             <p>
-              لديك حساب بالفعل؟{' '}
-              <Link to="/login">تسجيل الدخول</Link>
+              لديك حساب بالفعل؟ <Link to="/login">تسجيل الدخول</Link>
             </p>
           </div>
         </div>

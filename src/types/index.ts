@@ -13,6 +13,14 @@ export interface Product {
   createdAt: Date;
   updatedAt: Date;
   specs?: Record<string, string>;
+  // حقول الدروبشيبينج
+  supplierName?: string; // اسم المورد
+  supplierPrice?: number; // سعر المورد (التكلفة)
+  supplierUrl?: string; // رابط المنتج عند المورد
+  externalId?: string; // معرف المنتج في API الخارجي
+  profitMargin?: number; // هامش الربح (%)
+  autoSync?: boolean; // مزامنة تلقائية مع المورد
+  lastSyncAt?: Date; // آخر مزامنة
 }
 
 export interface Category {
@@ -38,7 +46,7 @@ export interface Order {
   userId: string;
   items: OrderItem[];
   total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   shippingAddress: Address;
   paymentMethod: string;
   createdAt: Date;
@@ -67,7 +75,7 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
-  role: 'customer' | 'admin';
+  role: "customer" | "admin";
   addresses: Address[];
   createdAt: Date;
 }

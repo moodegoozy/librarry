@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
+import React, { useState, useEffect } from "react";
+import {
+  Search,
   Eye,
   Download,
   Truck,
@@ -9,83 +9,145 @@ import {
   XCircle,
   Clock,
   Inbox,
-  Loader
-} from 'lucide-react';
-import { subscribeToOrders, updateOrderStatusInFirestore } from '../../services/firestore';
-import './Orders.css';
+  Loader,
+  Trash2,
+} from "lucide-react";
+import {
+  subscribeToOrders,
+  updateOrderStatusInFirestore,
+  deleteOrder,
+} from "../../services/firestore";
+import type { FirestoreOrder } from "../../services/firestore";
+import "./Orders.css";
 
-interface Order {
-  id: string;
-  customer: string;
-  email: string;
-  phone: string;
-  items: number;
-  total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  paymentMethod: string;
-  date: string;
-}
+type Order = FirestoreOrder;
 
 const statusConfig = {
-  pending: { label: 'قيد الانتظار', icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
-  processing: { label: 'قيد التجهيز', icon: Package, color: '#3b82f6', bg: '#dbeafe' },
-  shipped: { label: 'تم الشحن', icon: Truck, color: '#8b5cf6', bg: '#ede9fe' },
-  delivered: { label: 'تم التسليم', icon: CheckCircle, color: '#22c55e', bg: '#dcfce7' },
-  cancelled: { label: 'ملغي', icon: XCircle, color: '#ef4444', bg: '#fee2e2' },
+  pending: {
+    label: "قيد الانتظار",
+    icon: Clock,
+    color: "#f59e0b",
+    bg: "#fef3c7",
+  },
+  processing: {
+    label: "قيد التجهيز",
+    icon: Package,
+    color: "#3b82f6",
+    bg: "#dbeafe",
+  },
+  shipped: { label: "تم الشحن", icon: Truck, color: "#8b5cf6", bg: "#ede9fe" },
+  delivered: {
+    label: "تم التسليم",
+    icon: CheckCircle,
+    color: "#22c55e",
+    bg: "#dcfce7",
+  },
+  cancelled: { label: "ملغي", icon: XCircle, color: "#ef4444", bg: "#fee2e2" },
 };
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [newStatus, setNewStatus] = useState<string>('');
+  const [newStatus, setNewStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // الاشتراك في الطلبات من Firestore
   useEffect(() => {
     const unsubscribe = subscribeToOrders((firestoreOrders) => {
-      const mappedOrders: Order[] = firestoreOrders.map(o => ({
-        id: o.id,
-        customer: o.customer || 'عميل',
-        email: o.email || '',
-        phone: o.phone || '',
-        items: o.items.length,
-        total: o.total,
-        status: o.status as Order['status'],
-        paymentMethod: o.paymentMethod === 'cash' ? 'الدفع عند الاستلام' : 'بطاقة ائتمان',
-        date: o.createdAt instanceof Date ? o.createdAt.toISOString() : new Date().toISOString()
-      }));
-      setOrders(mappedOrders);
+      setOrders(firestoreOrders);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.includes(searchQuery) || order.customer.includes(searchQuery);
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      order.id.includes(searchQuery) ||
+      (order.customer || "").includes(searchQuery);
     const matchesStatus = !statusFilter || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA').format(price);
+    return new Intl.NumberFormat("ar-SA").format(price);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+  const formatDate = (date: Date | string) => {
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   // حساب الإحصائيات الحقيقية
   const stats = {
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    shipped: orders.filter(o => o.status === 'shipped').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
+    pending: orders.filter((o) => o.status === "pending").length,
+    processing: orders.filter((o) => o.status === "processing").length,
+    shipped: orders.filter((o) => o.status === "shipped").length,
+    delivered: orders.filter((o) => o.status === "delivered").length,
+  };
+
+  const handleExportOrders = () => {
+    const headers = [
+      "رقم الطلب",
+      "العميل",
+      "البريد",
+      "الإجمالي",
+      "طريقة الدفع",
+      "الحالة",
+      "التاريخ",
+    ];
+    const statusLabels: Record<string, string> = {
+      pending: "قيد الانتظار",
+      processing: "قيد التجهيز",
+      shipped: "تم الشحن",
+      delivered: "تم التسليم",
+      cancelled: "ملغي",
+    };
+    const rows = orders.map((o) => [
+      o.id,
+      o.customer || "عميل",
+      o.email,
+      o.total,
+      o.paymentMethod === "cash"
+        ? "الدفع عند الاستلام"
+        : o.paymentMethod === "bank"
+          ? "تحويل بنكي"
+          : "بطاقة",
+      statusLabels[o.status] || o.status,
+      formatDate(o.createdAt),
+    ]);
+    const csvContent = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `طلبات_${new Date().toLocaleDateString("ar-SA")}.csv`;
+    link.click();
+  };
+
+  const handleDeleteOrder = async (id: string) => {
+    if (!confirm("هل أنت متأكد من حذف هذا الطلب؟")) return;
+    try {
+      await deleteOrder(id);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      alert("حدث خطأ أثناء حذف الطلب");
+    }
   };
 
   return (
@@ -142,7 +204,7 @@ const Orders: React.FC = () => {
           />
         </div>
         <div className="filter-buttons">
-          <select 
+          <select
             className="filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -154,7 +216,10 @@ const Orders: React.FC = () => {
             <option value="delivered">تم التسليم</option>
             <option value="cancelled">ملغي</option>
           </select>
-          <button className="btn btn-outline btn-sm">
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={handleExportOrders}
+          >
             <Download size={16} />
             تصدير
           </button>
@@ -186,33 +251,50 @@ const Orders: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order) => {
+                  {paginatedOrders.map((order) => {
                     const status = statusConfig[order.status];
                     const StatusIcon = status.icon;
                     return (
                       <tr key={order.id}>
-                        <td><strong>{order.id}</strong></td>
+                        <td>
+                          <strong>{order.id.slice(-8)}</strong>
+                        </td>
                         <td>
                           <div className="customer-cell">
-                            <span className="customer-name">{order.customer}</span>
-                            <span className="customer-email">{order.email}</span>
+                            <span className="customer-name">
+                              {order.customer || "عميل"}
+                            </span>
+                            <span className="customer-email">
+                              {order.email}
+                            </span>
                           </div>
                         </td>
-                        <td>{order.items} منتج</td>
-                        <td><strong>{formatPrice(order.total)} ر.س</strong></td>
-                        <td>{order.paymentMethod}</td>
-                        <td>{formatDate(order.date)}</td>
+                        <td>{order.items.length} منتج</td>
                         <td>
-                          <span 
+                          <strong>{formatPrice(order.total)} ر.س</strong>
+                        </td>
+                        <td>
+                          {order.paymentMethod === "cash"
+                            ? "الدفع عند الاستلام"
+                            : order.paymentMethod === "bank"
+                              ? "تحويل بنكي"
+                              : "بطاقة ائتمان"}
+                        </td>
+                        <td>{formatDate(order.createdAt)}</td>
+                        <td>
+                          <span
                             className="status-badge"
-                            style={{ background: status.bg, color: status.color }}
+                            style={{
+                              background: status.bg,
+                              color: status.color,
+                            }}
                           >
                             <StatusIcon size={14} />
                             {status.label}
                           </span>
                         </td>
                         <td>
-                          <button 
+                          <button
                             className="btn btn-sm btn-outline"
                             onClick={() => setSelectedOrder(order)}
                           >
@@ -229,11 +311,37 @@ const Orders: React.FC = () => {
 
             {/* Pagination */}
             <div className="pagination">
-              <span className="pagination-info">عرض 1-{filteredOrders.length} من {orders.length} طلب</span>
+              <span className="pagination-info">
+                عرض {(currentPage - 1) * itemsPerPage + 1}-
+                {Math.min(currentPage * itemsPerPage, filteredOrders.length)} من{" "}
+                {filteredOrders.length} طلب
+              </span>
               <div className="pagination-buttons">
-                <button className="pagination-btn" disabled>السابق</button>
-                <button className="pagination-btn active">1</button>
-                <button className="pagination-btn">التالي</button>
+                <button
+                  className="pagination-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  السابق
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      className={`pagination-btn ${currentPage === page ? "active" : ""}`}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
+                <button
+                  className="pagination-btn"
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  التالي
+                </button>
               </div>
             </div>
           </>
@@ -246,7 +354,12 @@ const Orders: React.FC = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>تفاصيل الطلب {selectedOrder.id}</h2>
-              <button className="close-btn" onClick={() => setSelectedOrder(null)}>×</button>
+              <button
+                className="close-btn"
+                onClick={() => setSelectedOrder(null)}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div className="order-details">
@@ -254,7 +367,7 @@ const Orders: React.FC = () => {
                   <h4>معلومات العميل</h4>
                   <div className="detail-row">
                     <span>الاسم:</span>
-                    <strong>{selectedOrder.customer}</strong>
+                    <strong>{selectedOrder.customer || "عميل"}</strong>
                   </div>
                   <div className="detail-row">
                     <span>البريد:</span>
@@ -267,28 +380,129 @@ const Orders: React.FC = () => {
                 </div>
 
                 <div className="detail-section">
-                  <h4>معلومات الطلب</h4>
-                  <div className="detail-row">
-                    <span>عدد المنتجات:</span>
-                    <strong>{selectedOrder.items}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>الإجمالي:</span>
-                    <strong>{formatPrice(selectedOrder.total)} ر.س</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>طريقة الدفع:</span>
-                    <strong>{selectedOrder.paymentMethod}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>التاريخ:</span>
-                    <strong>{formatDate(selectedOrder.date)}</strong>
+                  <h4>عنوان الشحن</h4>
+                  {selectedOrder.address ? (
+                    <>
+                      <div className="detail-row">
+                        <span>المدينة:</span>
+                        <strong>{selectedOrder.address.city}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>الحي:</span>
+                        <strong>{selectedOrder.address.district}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>الشارع:</span>
+                        <strong>{selectedOrder.address.street}</strong>
+                      </div>
+                      {selectedOrder.address.building && (
+                        <div className="detail-row">
+                          <span>المبنى:</span>
+                          <strong>{selectedOrder.address.building}</strong>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="detail-row">
+                      <span>العنوان:</span>
+                      <strong>{selectedOrder.shippingAddress}</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="detail-section">
+                  <h4>المنتجات ({selectedOrder.items.length})</h4>
+                  <div className="order-items-list">
+                    {selectedOrder.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="order-item-row"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "8px 0",
+                          borderBottom: "1px solid #f1f5f9",
+                        }}
+                      >
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            style={{
+                              width: "48px",
+                              height: "48px",
+                              borderRadius: "8px",
+                              objectFit: "cover",
+                            }}
+                          />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: "14px" }}>
+                            {item.name}
+                          </div>
+                          <div style={{ color: "#64748b", fontSize: "13px" }}>
+                            الكمية: {item.quantity} × {formatPrice(item.price)}{" "}
+                            ر.س
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: "14px" }}>
+                          {formatPrice(item.quantity * item.price)} ر.س
+                        </strong>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 <div className="detail-section">
+                  <h4>ملخص الطلب</h4>
+                  {selectedOrder.subtotal && (
+                    <div className="detail-row">
+                      <span>المجموع الفرعي:</span>
+                      <strong>{formatPrice(selectedOrder.subtotal)} ر.س</strong>
+                    </div>
+                  )}
+                  {selectedOrder.shippingCost !== undefined && (
+                    <div className="detail-row">
+                      <span>الشحن:</span>
+                      <strong>
+                        {selectedOrder.shippingCost === 0
+                          ? "مجاني"
+                          : `${formatPrice(selectedOrder.shippingCost)} ر.س`}
+                      </strong>
+                    </div>
+                  )}
+                  <div className="detail-row">
+                    <span>الإجمالي:</span>
+                    <strong style={{ color: "#22c55e", fontSize: "16px" }}>
+                      {formatPrice(selectedOrder.total)} ر.س
+                    </strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>طريقة الدفع:</span>
+                    <strong>
+                      {selectedOrder.paymentMethod === "cash"
+                        ? "الدفع عند الاستلام"
+                        : selectedOrder.paymentMethod === "bank"
+                          ? "تحويل بنكي"
+                          : "بطاقة ائتمان"}
+                    </strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>التاريخ:</span>
+                    <strong>{formatDate(selectedOrder.createdAt)}</strong>
+                  </div>
+                  {selectedOrder.notes && (
+                    <div className="detail-row">
+                      <span>ملاحظات:</span>
+                      <strong>{selectedOrder.notes}</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="detail-section">
                   <h4>تحديث الحالة</h4>
-                  <select 
+                  <select
                     className="form-select"
                     value={newStatus || selectedOrder.status}
                     onChange={(e) => setNewStatus(e.target.value)}
@@ -303,22 +517,38 @@ const Orders: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setSelectedOrder(null)} disabled={loading}>
+              <button
+                className="btn btn-outline"
+                style={{ color: "#ef4444", borderColor: "#ef4444" }}
+                onClick={() => handleDeleteOrder(selectedOrder.id)}
+                disabled={loading}
+              >
+                <Trash2 size={16} />
+                حذف الطلب
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => setSelectedOrder(null)}
+                disabled={loading}
+              >
                 إغلاق
               </button>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 disabled={loading}
                 onClick={async () => {
                   if (newStatus && newStatus !== selectedOrder.status) {
                     setLoading(true);
                     try {
-                      await updateOrderStatusInFirestore(selectedOrder.id, newStatus as Order['status']);
+                      await updateOrderStatusInFirestore(
+                        selectedOrder.id,
+                        newStatus as Order["status"],
+                      );
                       setSelectedOrder(null);
-                      setNewStatus('');
+                      setNewStatus("");
                     } catch (error) {
-                      console.error('Error updating order status:', error);
-                      alert('حدث خطأ أثناء تحديث حالة الطلب');
+                      console.error("Error updating order status:", error);
+                      alert("حدث خطأ أثناء تحديث حالة الطلب");
                     } finally {
                       setLoading(false);
                     }
@@ -327,7 +557,11 @@ const Orders: React.FC = () => {
                   }
                 }}
               >
-                {loading ? <Loader className="spinner" size={18} /> : 'حفظ التغييرات'}
+                {loading ? (
+                  <Loader className="spinner" size={18} />
+                ) : (
+                  "حفظ التغييرات"
+                )}
               </button>
             </div>
           </div>

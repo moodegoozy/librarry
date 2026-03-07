@@ -280,7 +280,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Orders List */
@@ -481,4 +483,71 @@
     gap: 0.75rem;
     align-items: flex-start;
   }
+}
+
+/* Wishlist */
+.wishlist-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.wishlist-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.wishlist-item:hover {
+  background: #f1f5f9;
+}
+
+.wishlist-image {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--border);
+}
+
+.wishlist-info {
+  flex: 1;
+}
+
+.wishlist-info h4 {
+  font-size: 15px;
+  color: var(--dark);
+  margin-bottom: 4px;
+}
+
+.wishlist-info h4:hover {
+  color: var(--primary);
+}
+
+.wishlist-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.wishlist-remove {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--gray);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wishlist-remove:hover {
+  background: #fee2e2;
+  color: var(--danger);
+  border-color: var(--danger);
 }

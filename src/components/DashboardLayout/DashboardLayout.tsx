@@ -1,45 +1,63 @@
-import React, { useEffect } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Users, 
+import React, { useEffect, useState } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Users,
   Tags,
   BarChart3,
   Settings,
   LogOut,
   Menu,
   Bell,
-  ChevronDown
-} from 'lucide-react';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../config/firebase';
-import { useStore } from '../../store/useStore';
-import logoImage from '../../assets/logo.jpeg';
-import './DashboardLayout.css';
+  ChevronDown,
+  MessageSquare,
+} from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "../../config/firebase";
+import { useStore } from "../../store/useStore";
+import { subscribeToOrders } from "../../services/firestore";
+import type { FirestoreOrder } from "../../services/firestore";
+import logoImage from "../../assets/logo.jpeg";
+import "./DashboardLayout.css";
 
 const menuItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
-  { path: '/dashboard/products', icon: Package, label: 'المنتجات' },
-  { path: '/dashboard/orders', icon: ShoppingCart, label: 'الطلبات' },
-  { path: '/dashboard/categories', icon: Tags, label: 'التصنيفات' },
-  { path: '/dashboard/customers', icon: Users, label: 'العملاء' },
-  { path: '/dashboard/analytics', icon: BarChart3, label: 'التقارير' },
-  { path: '/dashboard/settings', icon: Settings, label: 'الإعدادات' },
+  {
+    path: "/dashboard",
+    icon: LayoutDashboard,
+    label: "لوحة التحكم",
+    exact: true,
+  },
+  { path: "/dashboard/products", icon: Package, label: "المنتجات" },
+  { path: "/dashboard/orders", icon: ShoppingCart, label: "الطلبات" },
+  { path: "/dashboard/categories", icon: Tags, label: "التصنيفات" },
+  { path: "/dashboard/customers", icon: Users, label: "العملاء" },
+  { path: "/dashboard/messages", icon: MessageSquare, label: "الرسائل" },
+  { path: "/dashboard/analytics", icon: BarChart3, label: "التقارير" },
+  { path: "/dashboard/settings", icon: Settings, label: "الإعدادات" },
 ];
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { sidebarOpen, toggleSidebar, user, setUser } = useStore();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // حساب عدد الطلبات الجديدة للجرس
+  useEffect(() => {
+    const unsubscribe = subscribeToOrders((orders: FirestoreOrder[]) => {
+      setPendingCount(orders.filter((o) => o.status === "pending").length);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // حماية الداشبورد - فقط للأدمن
   useEffect(() => {
     if (!user) {
-      navigate('/login');
-    } else if (user.role !== 'admin') {
-      navigate('/account'); // توجيه العملاء لصفحة حسابهم
+      navigate("/login");
+    } else if (user.role !== "admin") {
+      navigate("/account"); // توجيه العملاء لصفحة حسابهم
     }
   }, [user, navigate]);
 
@@ -47,11 +65,11 @@ const DashboardLayout: React.FC = () => {
     try {
       await signOut(auth);
       setUser(null);
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       setUser(null);
-      navigate('/login');
+      navigate("/login");
     }
   };
 
@@ -70,7 +88,9 @@ const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className={`dashboard-layout ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
+    <div
+      className={`dashboard-layout ${sidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}
+    >
       {/* Sidebar */}
       <aside className="dashboard-sidebar">
         <div className="sidebar-header">
@@ -84,9 +104,9 @@ const DashboardLayout: React.FC = () => {
           <ul>
             {menuItems.map((item) => (
               <li key={item.path}>
-                <Link 
-                  to={item.path} 
-                  className={`nav-link ${isActive(item.path, item.exact) ? 'active' : ''}`}
+                <Link
+                  to={item.path}
+                  className={`nav-link ${isActive(item.path, item.exact) ? "active" : ""}`}
                   onClick={handleNavClick}
                 >
                   <item.icon size={20} />
@@ -114,24 +134,30 @@ const DashboardLayout: React.FC = () => {
               <Menu size={24} />
             </button>
             <h1 className="page-title">
-              {menuItems.find(item => isActive(item.path, item.exact))?.label || 'لوحة التحكم'}
+              {menuItems.find((item) => isActive(item.path, item.exact))
+                ?.label || "لوحة التحكم"}
             </h1>
           </div>
 
           <div className="header-left">
-            <button className="notification-btn">
+            <button
+              className="notification-btn"
+              onClick={() => navigate("/dashboard/orders")}
+            >
               <Bell size={22} />
-              <span className="notification-badge">3</span>
+              {pendingCount > 0 && (
+                <span className="notification-badge">{pendingCount}</span>
+              )}
             </button>
 
             <div className="user-menu">
-              <img 
-                src="https://ui-avatars.com/api/?name=Admin&background=2563eb&color=fff" 
+              <img
+                src="https://ui-avatars.com/api/?name=Admin&background=2563eb&color=fff"
                 alt="Admin"
                 className="user-avatar"
               />
               <div className="user-info">
-                <span className="user-name">{user?.name || 'المدير'}</span>
+                <span className="user-name">{user?.name || "المدير"}</span>
                 <span className="user-role">مدير</span>
               </div>
               <ChevronDown size={16} />

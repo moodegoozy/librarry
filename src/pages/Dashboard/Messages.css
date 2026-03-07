@@ -1,0 +1,127 @@
+.messages-page .page-header {
+  margin-bottom: 24px;
+}
+.messages-page .page-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.messages-page .page-header p {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.messages-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.message-item:hover {
+  background: #f8fafc;
+}
+.message-item.unread {
+  background: #eff6ff;
+  border-right: 3px solid #3b82f6;
+}
+.message-item.selected {
+  background: #dbeafe;
+}
+
+.message-icon {
+  padding-top: 2px;
+  color: #94a3b8;
+}
+.message-item.unread .message-icon {
+  color: #3b82f6;
+}
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.message-sender {
+  font-size: 14px;
+  font-weight: 600;
+}
+.message-date {
+  font-size: 12px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.message-subject {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  display: block;
+  margin-bottom: 4px;
+}
+.message-preview {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.message-email {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.message-detail .detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+}
+.message-detail .detail-row span {
+  color: #64748b;
+}
+
+.message-body {
+  margin-top: 16px;
+}
+.message-body h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1e293b;
+}
+.message-body p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.messages-page .modal-footer .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
