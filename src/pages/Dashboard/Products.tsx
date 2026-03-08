@@ -316,13 +316,13 @@ const Products: React.FC = () => {
       const scraped = await scrapeProduct(productUrl.trim());
       // تعبئة نموذج المنتج بالبيانات المجلوبة
       setFormData({
-        name: scraped.name || '',
-        nameEn: scraped.nameEn || '',
-        description: scraped.description || '',
-        price: scraped.price ? scraped.price.toString() : '',
-        oldPrice: scraped.oldPrice ? scraped.oldPrice.toString() : '',
-        category: '',
-        stock: '10',
+        name: scraped.name || "",
+        nameEn: scraped.nameEn || "",
+        description: scraped.description || "",
+        price: scraped.price ? scraped.price.toString() : "",
+        oldPrice: scraped.oldPrice ? scraped.oldPrice.toString() : "",
+        category: "",
+        stock: "10",
         featured: false,
         images: scraped.images || [],
       });
@@ -331,8 +331,12 @@ const Products: React.FC = () => {
       setShowUrlModal(false);
       setShowModal(true);
     } catch (error) {
-      console.error('Scrape error:', error);
-      alert(error instanceof Error ? error.message : 'حدث خطأ أثناء جلب بيانات المنتج');
+      console.error("Scrape error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "حدث خطأ أثناء جلب بيانات المنتج",
+      );
     } finally {
       setUrlLoading(false);
     }
@@ -347,13 +351,13 @@ const Products: React.FC = () => {
       if (!scraped.name || !scraped.price) {
         // إذا البيانات ناقصة، افتح النموذج للمراجعة
         setFormData({
-          name: scraped.name || '',
-          nameEn: scraped.nameEn || '',
-          description: scraped.description || '',
-          price: scraped.price ? scraped.price.toString() : '',
-          oldPrice: scraped.oldPrice ? scraped.oldPrice.toString() : '',
-          category: '',
-          stock: '10',
+          name: scraped.name || "",
+          nameEn: scraped.nameEn || "",
+          description: scraped.description || "",
+          price: scraped.price ? scraped.price.toString() : "",
+          oldPrice: scraped.oldPrice ? scraped.oldPrice.toString() : "",
+          category: "",
+          stock: "10",
           featured: false,
           images: scraped.images || [],
         });
@@ -361,17 +365,20 @@ const Products: React.FC = () => {
         setPendingFiles([]);
         setShowUrlModal(false);
         setShowModal(true);
-        alert('البيانات غير مكتملة. يرجى مراجعة وإكمال المعلومات.');
+        alert("البيانات غير مكتملة. يرجى مراجعة وإكمال المعلومات.");
         return;
       }
       await addProductToFirestore({
         name: scraped.name,
-        nameEn: scraped.nameEn || '',
-        description: scraped.description || '',
+        nameEn: scraped.nameEn || "",
+        description: scraped.description || "",
         price: scraped.price,
         oldPrice: scraped.oldPrice,
-        category: '',
-        images: scraped.images.length > 0 ? scraped.images : ['https://via.placeholder.com/300'],
+        category: "",
+        images:
+          scraped.images.length > 0
+            ? scraped.images
+            : ["https://via.placeholder.com/300"],
         stock: 10,
         featured: false,
         supplierUrl: scraped.supplierUrl,
@@ -380,12 +387,14 @@ const Products: React.FC = () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      alert('تمت إضافة المنتج بنجاح!');
+      alert("تمت إضافة المنتج بنجاح!");
       setShowUrlModal(false);
-      setProductUrl('');
+      setProductUrl("");
     } catch (error) {
-      console.error('Direct add error:', error);
-      alert(error instanceof Error ? error.message : 'حدث خطأ أثناء إضافة المنتج');
+      console.error("Direct add error:", error);
+      alert(
+        error instanceof Error ? error.message : "حدث خطأ أثناء إضافة المنتج",
+      );
     } finally {
       setUrlLoading(false);
     }
@@ -400,7 +409,14 @@ const Products: React.FC = () => {
             <Plus size={18} />
             إضافة منتج
           </button>
-          <button className="btn btn-primary" style={{ background: '#8b5cf6' }} onClick={() => { setProductUrl(''); setShowUrlModal(true); }}>
+          <button
+            className="btn btn-primary"
+            style={{ background: "#8b5cf6" }}
+            onClick={() => {
+              setProductUrl("");
+              setShowUrlModal(true);
+            }}
+          >
             <Link2 size={18} />
             إضافة من رابط
           </button>
@@ -828,15 +844,30 @@ const Products: React.FC = () => {
       )}
       {/* URL Import Modal */}
       {showUrlModal && (
-        <div className="modal-overlay" onClick={() => !urlLoading && setShowUrlModal(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => !urlLoading && setShowUrlModal(false)}
+        >
           <div className="modal small" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>إضافة منتج من رابط</h2>
-              <button className="close-btn" onClick={() => !urlLoading && setShowUrlModal(false)}>×</button>
+              <button
+                className="close-btn"
+                onClick={() => !urlLoading && setShowUrlModal(false)}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-body">
-              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '16px' }}>
-                الصق رابط المنتج من AliExpress أو أي موقع آخر وسيتم جلب البيانات تلقائياً
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: "14px",
+                  marginBottom: "16px",
+                }}
+              >
+                الصق رابط المنتج من AliExpress أو أي موقع آخر وسيتم جلب البيانات
+                تلقائياً
               </p>
               <div className="form-group">
                 <label className="form-label">رابط المنتج</label>
@@ -848,12 +879,26 @@ const Products: React.FC = () => {
                   onChange={(e) => setProductUrl(e.target.value)}
                   disabled={urlLoading}
                   dir="ltr"
-                  style={{ textAlign: 'left' }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDirectFromUrl(); } }}
+                  style={{ textAlign: "left" }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddDirectFromUrl();
+                    }
+                  }}
                 />
               </div>
               {urlLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8b5cf6', fontSize: '14px', marginTop: '8px' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "#8b5cf6",
+                    fontSize: "14px",
+                    marginTop: "8px",
+                  }}
+                >
                   <Loader className="spinner" size={16} />
                   <span>جاري جلب بيانات المنتج...</span>
                 </div>
@@ -872,16 +917,24 @@ const Products: React.FC = () => {
                 onClick={handleFetchFromUrl}
                 disabled={urlLoading || !productUrl.trim()}
               >
-                {urlLoading ? <Loader className="spinner" size={16} /> : <Eye size={16} />}
+                {urlLoading ? (
+                  <Loader className="spinner" size={16} />
+                ) : (
+                  <Eye size={16} />
+                )}
                 جلب ومراجعة
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleAddDirectFromUrl}
                 disabled={urlLoading || !productUrl.trim()}
-                style={{ background: '#8b5cf6' }}
+                style={{ background: "#8b5cf6" }}
               >
-                {urlLoading ? <Loader className="spinner" size={16} /> : <Link2 size={16} />}
+                {urlLoading ? (
+                  <Loader className="spinner" size={16} />
+                ) : (
+                  <Link2 size={16} />
+                )}
                 إضافة مباشرة
               </button>
             </div>

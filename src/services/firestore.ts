@@ -178,6 +178,7 @@ export interface FirestoreOrder {
     district: string;
     street: string;
     building?: string;
+    nationalAddress?: string;
   };
   notes?: string;
   createdAt: Date;

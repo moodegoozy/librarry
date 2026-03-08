@@ -46,6 +46,7 @@ const Account: React.FC = () => {
     district: "",
     street: "",
     building: "",
+    nationalAddress: "",
   });
 
   // Status config for orders
@@ -96,6 +97,7 @@ const Account: React.FC = () => {
       district: user.addresses?.[0]?.district || "",
       street: user.addresses?.[0]?.street || "",
       building: user.addresses?.[0]?.building || "",
+      nationalAddress: user.addresses?.[0]?.nationalAddress || "",
     });
   }, [user, navigate]);
 
@@ -152,6 +154,7 @@ const Account: React.FC = () => {
             district: formData.district,
             street: formData.street,
             building: formData.building,
+            nationalAddress: formData.nationalAddress,
           },
         ],
       };
@@ -369,6 +372,21 @@ const Account: React.FC = () => {
                             placeholder="رقم المبنى أو الشقة"
                           />
                         </div>
+                      </div>
+                      <div className="form-group">
+                        <label>العنوان الوطني (اختياري)</label>
+                        <input
+                          type="text"
+                          value={formData.nationalAddress}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              nationalAddress: e.target.value,
+                            })
+                          }
+                          disabled={!editing}
+                          placeholder="مثال: RRRD2929"
+                        />
                       </div>
                     </div>
                   </div>

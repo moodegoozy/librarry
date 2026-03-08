@@ -68,6 +68,7 @@ export interface Address {
   district: string;
   street: string;
   building?: string;
+  nationalAddress?: string;
 }
 
 export interface User {

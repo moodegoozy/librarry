@@ -58,6 +58,7 @@ const Checkout: React.FC = () => {
     district: "",
     street: "",
     building: "",
+    nationalAddress: "",
     notes: "",
     paymentMethod: "cash",
   });
@@ -95,6 +96,7 @@ const Checkout: React.FC = () => {
         district: user.addresses?.[0]?.district || "",
         street: user.addresses?.[0]?.street || "",
         building: user.addresses?.[0]?.building || "",
+        nationalAddress: user.addresses?.[0]?.nationalAddress || "",
       }));
     }
   }, [user]);
@@ -188,7 +190,8 @@ const Checkout: React.FC = () => {
         shippingCost: shipping,
         status: "pending" as const,
         paymentMethod: formData.paymentMethod,
-        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ""}`,
+        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ""}${formData.nationalAddress ? `، العنوان الوطني: ${formData.nationalAddress}` : ""}`,
+
         address: {
           fullName: formData.fullName,
           phone: formData.phone,
@@ -196,6 +199,7 @@ const Checkout: React.FC = () => {
           district: formData.district,
           street: formData.street,
           building: formData.building,
+          nationalAddress: formData.nationalAddress,
         },
         notes: formData.notes,
         createdAt: new Date(),
@@ -394,6 +398,20 @@ const Checkout: React.FC = () => {
                             placeholder="رقم المبنى أو الشقة"
                           />
                         </div>
+                      </div>
+                      <div className="form-group">
+                        <label>العنوان الوطني (اختياري)</label>
+                        <input
+                          type="text"
+                          value={formData.nationalAddress}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              nationalAddress: e.target.value,
+                            })
+                          }
+                          placeholder="مثال: RRRD2929"
+                        />
                       </div>
                       <div className="form-group">
                         <label>ملاحظات إضافية (اختياري)</label>

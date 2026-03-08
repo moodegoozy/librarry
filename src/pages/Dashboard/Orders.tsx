@@ -401,6 +401,12 @@ const Orders: React.FC = () => {
                           <strong>{selectedOrder.address.building}</strong>
                         </div>
                       )}
+                      {selectedOrder.address.nationalAddress && (
+                        <div className="detail-row">
+                          <span>العنوان الوطني:</span>
+                          <strong>{selectedOrder.address.nationalAddress}</strong>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="detail-row">
