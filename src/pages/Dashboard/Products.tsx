@@ -866,15 +866,27 @@ const Products: React.FC = () => {
                   marginBottom: "16px",
                 }}
               >
-                الصق رابط المنتج من AliExpress أو أي موقع آخر وسيتم جلب البيانات
-                تلقائياً
+                الصق رابط المنتج وسيتم جلب البيانات تلقائياً
+              </p>
+              <p
+                style={{
+                  color: "#8b5cf6",
+                  fontSize: "12px",
+                  marginBottom: "12px",
+                  background: "#f5f3ff",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  lineHeight: "1.8",
+                }}
+              >
+                المتاجر المدعومة: Amazon • AliExpress • Noon • SHEIN • Temu • eBay • Alibaba • أي موقع آخر
               </p>
               <div className="form-group">
                 <label className="form-label">رابط المنتج</label>
                 <input
                   type="url"
                   className="form-input"
-                  placeholder="https://www.aliexpress.com/item/..."
+                  placeholder="https://www.amazon.sa/dp/... أو أي رابط منتج"
                   value={productUrl}
                   onChange={(e) => setProductUrl(e.target.value)}
                   disabled={urlLoading}

@@ -404,7 +404,9 @@ const Orders: React.FC = () => {
                       {selectedOrder.address.nationalAddress && (
                         <div className="detail-row">
                           <span>العنوان الوطني:</span>
-                          <strong>{selectedOrder.address.nationalAddress}</strong>
+                          <strong>
+                            {selectedOrder.address.nationalAddress}
+                          </strong>
                         </div>
                       )}
                     </>
