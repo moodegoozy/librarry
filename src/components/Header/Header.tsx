@@ -17,9 +17,11 @@ import "./Header.css";
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { getCartCount, user, searchQuery, setSearchQuery, categories } =
+  const { cart, user, searchQuery, setSearchQuery, categories } =
     useStore();
   const navigate = useNavigate();
+
+  const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,8 +110,8 @@ const Header: React.FC = () => {
 
               <Link to="/cart" className="action-btn cart-btn">
                 <ShoppingCart size={22} />
-                {getCartCount() > 0 && (
-                  <span className="cart-count">{getCartCount()}</span>
+                {cartCount > 0 && (
+                  <span className="cart-count">{cartCount}</span>
                 )}
               </Link>
 

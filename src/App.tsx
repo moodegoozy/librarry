@@ -28,6 +28,10 @@ import Contact from "./pages/Contact/Contact";
 import About from "./pages/About/About";
 import ForgotPassword from "./pages/ForgotPassword/ForgotPassword";
 import NotFound from "./pages/NotFound/NotFound";
+import Privacy from "./pages/Legal/Privacy";
+import Shipping from "./pages/Legal/Shipping";
+import Returns from "./pages/Legal/Returns";
+import FAQ from "./pages/Legal/FAQ";
 
 // Dashboard Pages
 import DashboardHome from "./pages/Dashboard/DashboardHome";
@@ -186,6 +190,40 @@ const App: React.FC = () => {
           element={
             <StoreLayout>
               <About />
+            </StoreLayout>
+          }
+        />
+
+        {/* Legal Pages */}
+        <Route
+          path="/privacy"
+          element={
+            <StoreLayout>
+              <Privacy />
+            </StoreLayout>
+          }
+        />
+        <Route
+          path="/shipping"
+          element={
+            <StoreLayout>
+              <Shipping />
+            </StoreLayout>
+          }
+        />
+        <Route
+          path="/returns"
+          element={
+            <StoreLayout>
+              <Returns />
+            </StoreLayout>
+          }
+        />
+        <Route
+          path="/faq"
+          element={
+            <StoreLayout>
+              <FAQ />
             </StoreLayout>
           }
         />
