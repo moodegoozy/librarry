@@ -22,10 +22,12 @@ async function verifyAdmin(auth: { uid: string } | undefined): Promise<void> {
 export const cjTestConnection = functions.https.onCall(
   async (data, context) => {
     await verifyAdmin(context.auth ?? undefined);
-    const { apiKey } = data;
+    const { email, apiKey } = data;
+    if (!email)
+      throw new functions.https.HttpsError("invalid-argument", "بريد CJ مطلوب");
     if (!apiKey)
-      throw new functions.https.HttpsError("invalid-argument", "apiKey مطلوب");
-    return cj.testConnection(apiKey);
+      throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
+    return cj.testConnection(email, apiKey);
   },
 );
 
@@ -50,6 +52,12 @@ export const cjSearchProducts = functions.https.onCall(
         pageNum: data.pageNum || 1,
         pageSize: data.pageSize || 20,
       });
+      // Log first product image for debugging
+      const res = result as any;
+      if (res?.data?.list?.[0]) {
+        const s = res.data.list[0];
+        console.log("CJ productImage:", s.productImage);
+      }
       return result;
     } catch (error) {
       wrapError(error);

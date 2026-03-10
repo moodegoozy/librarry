@@ -52,10 +52,12 @@ async function verifyAdmin(auth) {
 exports.cjTestConnection = functions.https.onCall(async (data, context) => {
     var _a;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
-    const { apiKey } = data;
+    const { email, apiKey } = data;
+    if (!email)
+        throw new functions.https.HttpsError("invalid-argument", "بريد CJ مطلوب");
     if (!apiKey)
-        throw new functions.https.HttpsError("invalid-argument", "apiKey مطلوب");
-    return cj.testConnection(apiKey);
+        throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
+    return cj.testConnection(email, apiKey);
 });
 // تحويل الأخطاء العادية إلى HttpsError
 function wrapError(error) {
@@ -69,7 +71,7 @@ function wrapError(error) {
 }
 // ==================== البحث عن منتجات ====================
 exports.cjSearchProducts = functions.https.onCall(async (data, context) => {
-    var _a;
+    var _a, _b, _c;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
     try {
         const result = await cj.searchProducts({
@@ -78,6 +80,12 @@ exports.cjSearchProducts = functions.https.onCall(async (data, context) => {
             pageNum: data.pageNum || 1,
             pageSize: data.pageSize || 20,
         });
+        // Log first product image for debugging
+        const res = result;
+        if ((_c = (_b = res === null || res === void 0 ? void 0 : res.data) === null || _b === void 0 ? void 0 : _b.list) === null || _c === void 0 ? void 0 : _c[0]) {
+            const s = res.data.list[0];
+            console.log("CJ productImage:", s.productImage);
+        }
         return result;
     }
     catch (error) {
@@ -145,7 +153,10 @@ exports.cjCreateOrder = functions.https.onCall(async (data, context) => {
         const result = await cj.createCJOrder(orderData);
         // تحديث الطلب في Firestore مع بيانات CJ
         if (result.result && result.data && firestoreOrderId) {
-            await admin.firestore().doc(`orders/${firestoreOrderId}`).update({
+            await admin
+                .firestore()
+                .doc(`orders/${firestoreOrderId}`)
+                .update({
                 isCJOrder: true,
                 cjOrderId: result.data.orderId || result.data.orderNum,
                 cjOrderNum: result.data.orderNum,
@@ -233,7 +244,10 @@ exports.onOrderCreated = functions.firestore
     const order = snap.data();
     const orderId = context.params.orderId;
     // التحقق من إعدادات CJ
-    const settingsDoc = await admin.firestore().doc("settings/cjDropshipping").get();
+    const settingsDoc = await admin
+        .firestore()
+        .doc("settings/cjDropshipping")
+        .get();
     const settings = settingsDoc.data();
     if (!(settings === null || settings === void 0 ? void 0 : settings.apiKey) || !(settings === null || settings === void 0 ? void 0 : settings.autoForwardOrders)) {
         return; // لا يوجد إعداد CJ أو الإرسال التلقائي معطل
@@ -241,7 +255,10 @@ exports.onOrderCreated = functions.firestore
     // البحث عن منتجات CJ في الطلب
     const cjItems = [];
     for (const item of order.items || []) {
-        const productDoc = await admin.firestore().doc(`products/${item.productId}`).get();
+        const productDoc = await admin
+            .firestore()
+            .doc(`products/${item.productId}`)
+            .get();
         const product = productDoc.data();
         if ((product === null || product === void 0 ? void 0 : product.isCJProduct) && (product === null || product === void 0 ? void 0 : product.cjVariantId)) {
             cjItems.push({

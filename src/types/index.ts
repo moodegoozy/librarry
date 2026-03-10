@@ -87,6 +87,7 @@ export interface CJOrderRequest {
 
 export interface CJSettings {
   apiKey: string;
+  email: string; // بريد حساب CJ Dropshipping
   accessToken?: string;
   refreshToken?: string;
   tokenExpiresAt?: Date;

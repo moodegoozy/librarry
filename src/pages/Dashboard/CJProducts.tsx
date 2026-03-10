@@ -24,6 +24,33 @@ import { getCJSettings } from "../../services/firestore";
 import type { CJSettings } from "../../types";
 import "./CJProducts.css";
 
+// تحويل HTML إلى نص عادي
+const stripHtml = (html: string): string => {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // Replace <br> and block elements with newlines
+  const body = doc.body;
+  body.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  body.querySelectorAll("p, div, li").forEach((el) => {
+    el.prepend(document.createTextNode("\n"));
+    el.append(document.createTextNode("\n"));
+  });
+  // Get text and clean up multiple newlines
+  return (body.textContent || "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+// CJ API may return image in different field names
+const getProductImage = (product: Record<string, unknown>): string => {
+  return (
+    (product.productImage as string) ||
+    (product.productImageUrl as string) ||
+    (product.bigImage as string) ||
+    (product.productImg as string) ||
+    ""
+  );
+};
+
 const CJProducts: React.FC = () => {
   const [products, setProducts] = useState<CJProductResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,7 +106,28 @@ const CJProducts: React.FC = () => {
       });
 
       if (result.result && result.data) {
-        setProducts(result.data.list || []);
+        const list = result.data.list || [];
+        // Debug: log first product keys and image-related fields
+        if (list.length > 0) {
+          const sample = list[0] as any;
+          console.log("CJ Product ALL KEYS:", Object.keys(sample));
+          const imageFields = Object.entries(sample).filter(
+            ([k, v]) =>
+              k.toLowerCase().includes("image") ||
+              k.toLowerCase().includes("img") ||
+              k.toLowerCase().includes("photo") ||
+              k.toLowerCase().includes("pic") ||
+              (typeof v === "string" && (v as string).match(/\.(jpg|jpeg|png|webp)/i))
+          );
+          console.log("CJ Image fields:", JSON.stringify(imageFields));
+          console.log("CJ productImage value:", sample.productImage);
+        }
+        // Normalize image field
+        const normalized = list.map((p: any) => ({
+          ...p,
+          productImage: getProductImage(p),
+        })) as CJProductResult[];
+        setProducts(normalized);
         setTotalProducts(result.data.total || 0);
         if (page) setPageNum(page);
       } else {
@@ -101,6 +149,12 @@ const CJProducts: React.FC = () => {
       const result = await getCJProductDetail(pid);
       if (result.result && result.data) {
         const detail = result.data;
+        // Normalize image field name
+        if (!detail.productImage) {
+          const raw = detail as any;
+          (detail as any).productImage = getProductImage(raw);
+        }
+        console.log("CJ Product detail:", JSON.stringify({ pid: detail.pid, productImage: detail.productImage }));
         setProductDetail(detail);
         setImportName(detail.productNameEn);
         const markup = cjSettings?.defaultMarkup || 30;
@@ -134,9 +188,11 @@ const CJProducts: React.FC = () => {
       const newProduct = {
         name: importName || productDetail.productNameEn,
         nameEn: productDetail.productNameEn,
-        description: productDetail.description || productDetail.productNameEn,
+        description: productDetail.description
+          ? stripHtml(productDetail.description)
+          : productDetail.productNameEn,
         price: importPrice,
-        oldPrice: undefined,
+        oldPrice: null,
         category: importCategory || productDetail.categoryName || "عام",
         images: [
           variant?.variantImage || productDetail.productImage,
@@ -283,15 +339,34 @@ const CJProducts: React.FC = () => {
 
               return (
                 <div key={product.pid} className="cj-product-card">
-                  <img
-                    src={product.productImage}
-                    alt={product.productNameEn}
-                    className="product-image"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "https://via.placeholder.com/300x200?text=No+Image";
-                    }}
-                  />
+                  {(() => {
+                    let imgSrc = product.productImage || "";
+                    // Fix protocol-relative URLs
+                    if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
+                    return imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={product.productNameEn}
+                        className="product-image"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (!target.dataset.retried) {
+                            target.dataset.retried = "1";
+                            // Try without referrer policy
+                            target.src = imgSrc;
+                          } else {
+                            target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="product-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f0f0", color: "#999", fontSize: "12px" }}>
+                        لا توجد صورة
+                      </div>
+                    );
+                  })()}
                   <div className="product-info">
                     <div className="product-name">{product.productNameEn}</div>
                     <div className="product-sku">SKU: {product.productSku}</div>
@@ -302,7 +377,7 @@ const CJProducts: React.FC = () => {
                     )}
                     <div className="product-price-row">
                       <span className="cj-price">
-                        ${product.sellPrice.toFixed(2)}
+                        ${Number(product.sellPrice).toFixed(2)}
                       </span>
                       <span className="sell-price">{sellPrice} ر.س</span>
                     </div>
@@ -377,9 +452,10 @@ const CJProducts: React.FC = () => {
             ) : productDetail ? (
               <>
                 <img
-                  src={productDetail.productImage}
+                  src={productDetail.productImage?.startsWith("//") ? "https:" + productDetail.productImage : productDetail.productImage}
                   alt={productDetail.productNameEn}
                   className="detail-image"
+                  referrerPolicy="no-referrer"
                 />
 
                 <div className="detail-info">
@@ -393,7 +469,7 @@ const CJProducts: React.FC = () => {
                   </div>
                   <div className="info-item">
                     <label>سعر CJ</label>
-                    <span>${productDetail.sellPrice.toFixed(2)}</span>
+                    <span>${Number(productDetail.sellPrice).toFixed(2)}</span>
                   </div>
                   <div className="info-item">
                     <label>التصنيف</label>
@@ -445,7 +521,7 @@ const CJProducts: React.FC = () => {
                           </div>
                         </div>
                         <div className="variant-price">
-                          ${variant.variantPrice.toFixed(2)}
+                          ${Number(variant.variantPrice).toFixed(2)}
                         </div>
                         {selectedVariant === variant.vid && (
                           <Check size={16} color="var(--primary)" />

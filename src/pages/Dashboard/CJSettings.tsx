@@ -22,6 +22,7 @@ import "./CJSettings.css";
 const CJSettings: React.FC = () => {
   const [settings, setSettings] = useState<Partial<CJSettingsType>>({
     apiKey: "",
+    email: "",
     defaultMarkup: 30,
     usdToSar: 3.75,
     autoForwardOrders: true,
@@ -89,15 +90,15 @@ const CJSettings: React.FC = () => {
 
   // اختبار الاتصال
   const handleTestConnection = async () => {
-    if (!settings.apiKey?.trim()) {
-      showToast("يجب إدخال مفتاح CJ API أولاً", "error");
+    if (!settings.email?.trim() || !settings.apiKey?.trim()) {
+      showToast("يجب إدخال البريد ومفتاح API أولاً", "error");
       return;
     }
 
     setTesting(true);
     setConnectionStatus("testing");
     try {
-      const result = await testCJConnection(settings.apiKey);
+      const result = await testCJConnection(settings.email, settings.apiKey);
       if (result.success) {
         setConnectionStatus("connected");
         showToast("تم الاتصال بنجاح مع CJ Dropshipping! ✓");
@@ -182,8 +183,24 @@ const CJSettings: React.FC = () => {
             الاتصال بـ CJ Dropshipping
           </div>
           <p className="card-desc">
-            أدخل مفتاح API الخاص بك من لوحة تحكم CJ Dropshipping للربط مع متجرك
+            أدخل بريدك الإلكتروني ومفتاح API من لوحة تحكم CJ Dropshipping للربط مع متجرك
           </p>
+
+          <div className="form-group">
+            <label>البريد الإلكتروني لحساب CJ</label>
+            <input
+              type="email"
+              value={settings.email || ""}
+              onChange={(e) =>
+                setSettings({ ...settings, email: e.target.value })
+              }
+              placeholder="example@email.com"
+              dir="ltr"
+            />
+            <p className="form-hint">
+              البريد الإلكتروني المسجل به في CJ Dropshipping (مطلوب للاتصال)
+            </p>
+          </div>
 
           <div className="form-group">
             <label>مفتاح API (API Key)</label>
@@ -205,7 +222,12 @@ const CJSettings: React.FC = () => {
             <button
               className="btn-test"
               onClick={handleTestConnection}
-              disabled={testing || !settings.apiKey?.trim() || cooldown > 0}
+              disabled={
+                testing ||
+                !settings.email?.trim() ||
+                !settings.apiKey?.trim() ||
+                cooldown > 0
+              }
             >
               {testing ? (
                 <>

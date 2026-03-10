@@ -16,8 +16,8 @@ async function getValidAccessToken(): Promise<string> {
   const settingsDoc = await db.doc("settings/cjDropshipping").get();
   const settings = settingsDoc.data();
 
-  if (!settings?.apiKey) {
-    throw new Error("CJ API Key غير مُعد. يرجى إدخاله في إعدادات CJ.");
+  if (!settings?.email || !settings?.apiKey) {
+    throw new Error("بيانات CJ غير مُعدة. يرجى إدخال البريد ومفتاح API في إعدادات CJ.");
   }
 
   // التحقق من صلاحية التوكن الحالي
@@ -47,7 +47,7 @@ async function getValidAccessToken(): Promise<string> {
   }
 
   // الحصول على توكن جديد
-  const tokens = await getNewAccessToken(settings.apiKey);
+  const tokens = await getNewAccessToken(settings.email, settings.apiKey);
   await db.doc("settings/cjDropshipping").update({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
@@ -57,13 +57,14 @@ async function getValidAccessToken(): Promise<string> {
   return tokens.accessToken;
 }
 
-// الحصول على توكن جديد من CJ
-async function getNewAccessToken(apiKey: string): Promise<CJTokens> {
-  console.log("CJ Auth: requesting new access token...");
+// الحصول على توكن جديد من CJ باستخدام البريد ومفتاح API
+async function getNewAccessToken(email: string, password: string): Promise<CJTokens> {
+  console.log("CJ Auth: requesting new access token with email:", email);
+
   const response = await fetch(`${CJ_BASE_URL}/authentication/getAccessToken`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: apiKey }),
+    body: JSON.stringify({ email, password }),
   });
 
   const data = await response.json();
@@ -242,20 +243,19 @@ export async function getCJBalance(): Promise<unknown> {
 // ==================== Test Connection ====================
 
 export async function testConnection(
+  email: string,
   apiKey: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log(
-      "Testing CJ connection with API key (first 10 chars):",
-      apiKey.substring(0, 10) + "...",
-    );
-    const tokens = await getNewAccessToken(apiKey);
+    console.log("Testing CJ connection with email:", email);
+    const tokens = await getNewAccessToken(email, apiKey);
     if (tokens.accessToken) {
       // حفظ التوكن في Firestore بعد النجاح
       const db = admin.firestore();
       await db.doc("settings/cjDropshipping").set(
         {
-          apiKey,
+          email,
+          ...(apiKey && { apiKey }),
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           tokenExpiresAt: new Date(tokens.accessTokenExpiryDate),

@@ -71,10 +71,11 @@ export async function saveCJSettings(
 // ==================== اختبار الاتصال ====================
 
 export async function testCJConnection(
-  apiKey: string,
+  email: string,
+  apiKey?: string,
 ): Promise<{ success: boolean; message: string }> {
   const fn = httpsCallable(functions, "cjTestConnection");
-  const result = await fn({ apiKey });
+  const result = await fn({ email, apiKey });
   return result.data as { success: boolean; message: string };
 }
 
@@ -211,11 +212,12 @@ export async function syncCJOrderStatuses(): Promise<{
 // ==================== مساعدات التسعير ====================
 
 export function calculateSellingPrice(
-  costUSD: number,
+  costUSD: number | string,
   usdToSar: number = 3.75,
   markupPercent: number = 30,
 ): number {
-  const costSAR = costUSD * usdToSar;
+  const cost = Number(costUSD) || 0;
+  const costSAR = cost * usdToSar;
   const sellingPrice = costSAR * (1 + markupPercent / 100);
   return Math.ceil(sellingPrice);
 }

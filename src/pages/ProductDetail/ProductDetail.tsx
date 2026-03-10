@@ -18,6 +18,23 @@ import { useStore } from "../../store/useStore";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import "./ProductDetail.css";
 
+// تحويل HTML إلى نص عادي
+const stripHtml = (html: string): string => {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const body = doc.body;
+  body.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+  body.querySelectorAll("p, div, li").forEach((el) => {
+    el.prepend(document.createTextNode("\n"));
+    el.append(document.createTextNode("\n"));
+  });
+  return (body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+};
+
+const cleanDescription = (desc: string): string => {
+  if (desc.includes("<")) return stripHtml(desc);
+  return desc;
+};
+
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { products, addToCart, toggleWishlist, isInWishlist, categories } =
@@ -198,7 +215,10 @@ const ProductDetail: React.FC = () => {
 
             {/* Description Preview */}
             {product.description && (
-              <p className="product-desc-preview">{product.description}</p>
+              <p className="product-desc-preview">
+                {cleanDescription(product.description).substring(0, 200)}
+                {cleanDescription(product.description).length > 200 ? "..." : ""}
+              </p>
             )}
 
             {/* Quantity & Add to Cart */}
@@ -311,7 +331,13 @@ const ProductDetail: React.FC = () => {
           <div className="tab-content">
             {activeTab === "description" && (
               <div className="tab-description">
-                <p>{product.description || "لا يوجد وصف لهذا المنتج بعد."}</p>
+                {product.description ? (
+                  <p style={{ whiteSpace: "pre-line" }}>
+                    {cleanDescription(product.description)}
+                  </p>
+                ) : (
+                  <p>لا يوجد وصف لهذا المنتج بعد.</p>
+                )}
               </div>
             )}
 

@@ -57,8 +57,8 @@ async function getValidAccessToken() {
     const db = admin.firestore();
     const settingsDoc = await db.doc("settings/cjDropshipping").get();
     const settings = settingsDoc.data();
-    if (!(settings === null || settings === void 0 ? void 0 : settings.apiKey)) {
-        throw new Error("CJ API Key غير مُعد. يرجى إدخاله في إعدادات CJ.");
+    if (!(settings === null || settings === void 0 ? void 0 : settings.email) || !(settings === null || settings === void 0 ? void 0 : settings.apiKey)) {
+        throw new Error("بيانات CJ غير مُعدة. يرجى إدخال البريد ومفتاح API في إعدادات CJ.");
     }
     // التحقق من صلاحية التوكن الحالي
     if (settings.accessToken && settings.tokenExpiresAt) {
@@ -86,7 +86,7 @@ async function getValidAccessToken() {
         }
     }
     // الحصول على توكن جديد
-    const tokens = await getNewAccessToken(settings.apiKey);
+    const tokens = await getNewAccessToken(settings.email, settings.apiKey);
     await db.doc("settings/cjDropshipping").update({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -95,16 +95,21 @@ async function getValidAccessToken() {
     });
     return tokens.accessToken;
 }
-// الحصول على توكن جديد من CJ
-async function getNewAccessToken(apiKey) {
-    console.log("CJ Auth: requesting new access token...");
+// الحصول على توكن جديد من CJ باستخدام البريد ومفتاح API
+async function getNewAccessToken(email, password) {
+    console.log("CJ Auth: requesting new access token with email:", email);
     const response = await (0, node_fetch_1.default)(`${CJ_BASE_URL}/authentication/getAccessToken`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: apiKey }),
+        body: JSON.stringify({ email, password }),
     });
     const data = await response.json();
-    console.log("CJ Auth response:", JSON.stringify({ result: data.result, code: data.code, message: data.message, hasData: !!data.data }));
+    console.log("CJ Auth response:", JSON.stringify({
+        result: data.result,
+        code: data.code,
+        message: data.message,
+        hasData: !!data.data,
+    }));
     if (!data.result || data.code !== 200) {
         throw new Error(`فشل الحصول على توكن CJ: ${data.message || "خطأ غير معروف"} (code: ${data.code})`);
     }
@@ -185,7 +190,9 @@ async function listCJOrders(params) {
     });
 }
 async function queryCJOrder(orderId) {
-    return cjRequest("/shopping/order/getOrderDetail", "GET", undefined, { orderId });
+    return cjRequest("/shopping/order/getOrderDetail", "GET", undefined, {
+        orderId,
+    });
 }
 // ==================== Logistics ====================
 async function calculateFreight(params) {
@@ -199,15 +206,16 @@ async function getCJBalance() {
     return cjRequest("/shopping/pay/getBalance", "GET");
 }
 // ==================== Test Connection ====================
-async function testConnection(apiKey) {
+async function testConnection(email, apiKey) {
     try {
-        console.log("Testing CJ connection with API key (first 10 chars):", apiKey.substring(0, 10) + "...");
-        const tokens = await getNewAccessToken(apiKey);
+        console.log("Testing CJ connection with email:", email);
+        const tokens = await getNewAccessToken(email, apiKey);
         if (tokens.accessToken) {
             // حفظ التوكن في Firestore بعد النجاح
             const db = admin.firestore();
             await db.doc("settings/cjDropshipping").set({
-                apiKey,
+                email,
+                ...(apiKey && { apiKey }),
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
                 tokenExpiresAt: new Date(tokens.accessTokenExpiryDate),
