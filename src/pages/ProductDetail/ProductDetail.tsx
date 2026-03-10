@@ -213,14 +213,6 @@ const ProductDetail: React.FC = () => {
               )}
             </div>
 
-            {/* Description Preview */}
-            {product.description && (
-              <p className="product-desc-preview">
-                {cleanDescription(product.description).substring(0, 200)}
-                {cleanDescription(product.description).length > 200 ? "..." : ""}
-              </p>
-            )}
-
             {/* Quantity & Add to Cart */}
             <div className="purchase-section">
               <div className="quantity-selector">

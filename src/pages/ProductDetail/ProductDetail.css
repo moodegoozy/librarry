@@ -245,7 +245,7 @@
 
 /* Description Preview */
 .product-desc-preview {
-  color: #475569;
+  color: var(--dark);
   font-size: 15px;
   line-height: 1.8;
   border-top: 1px solid var(--border);
@@ -386,17 +386,20 @@
   font-weight: 600;
   background: transparent;
   border: none;
-  color: var(--gray);
+  color: var(--dark);
   position: relative;
   transition: color 0.2s;
+  cursor: pointer;
 }
 
 .product-tabs .tab-btn:hover {
-  color: var(--dark);
+  color: var(--primary);
+  background: #f0f7fa;
 }
 
 .product-tabs .tab-btn.active {
   color: var(--primary);
+  background: #f0f7fa;
 }
 
 .product-tabs .tab-btn.active::after {
@@ -412,12 +415,15 @@
 
 .tab-content {
   padding: 30px;
+  color: var(--dark);
+  font-size: 15px;
 }
 
-.tab-description p {
+.tab-description p,
+.tab-description div {
   font-size: 15px;
   line-height: 2;
-  color: #475569;
+  color: var(--dark);
 }
 
 /* Specs Table */
@@ -447,7 +453,7 @@
 }
 
 .spec-value {
-  color: #475569;
+  color: var(--dark);
 }
 
 /* Shipping Tab */
