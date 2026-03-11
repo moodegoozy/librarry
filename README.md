@@ -73,7 +73,7 @@ npm run build
 
 firebase deploy
 \`\`\`
-
+npm install -g firebase-tools
 ## 🛠️ التقنيات المستخدمة
 
 - **React 19** - مكتبة واجهات المستخدم

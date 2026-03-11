@@ -17,7 +17,9 @@ async function getValidAccessToken(): Promise<string> {
   const settings = settingsDoc.data();
 
   if (!settings?.email || !settings?.apiKey) {
-    throw new Error("بيانات CJ غير مُعدة. يرجى إدخال البريد ومفتاح API في إعدادات CJ.");
+    throw new Error(
+      "بيانات CJ غير مُعدة. يرجى إدخال البريد ومفتاح API في إعدادات CJ.",
+    );
   }
 
   // التحقق من صلاحية التوكن الحالي
@@ -58,7 +60,10 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 // الحصول على توكن جديد من CJ باستخدام البريد ومفتاح API
-async function getNewAccessToken(email: string, password: string): Promise<CJTokens> {
+async function getNewAccessToken(
+  email: string,
+  password: string,
+): Promise<CJTokens> {
   console.log("CJ Auth: requesting new access token with email:", email);
 
   const response = await fetch(`${CJ_BASE_URL}/authentication/getAccessToken`, {

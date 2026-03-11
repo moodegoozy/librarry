@@ -26,7 +26,10 @@ export const cjTestConnection = functions.https.onCall(
     if (!email)
       throw new functions.https.HttpsError("invalid-argument", "بريد CJ مطلوب");
     if (!apiKey)
-      throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "مفتاح API مطلوب",
+      );
     return cj.testConnection(email, apiKey);
   },
 );

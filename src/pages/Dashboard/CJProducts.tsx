@@ -35,9 +35,7 @@ const stripHtml = (html: string): string => {
     el.append(document.createTextNode("\n"));
   });
   // Get text and clean up multiple newlines
-  return (body.textContent || "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return (body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
 };
 
 // CJ API may return image in different field names
@@ -117,7 +115,8 @@ const CJProducts: React.FC = () => {
               k.toLowerCase().includes("img") ||
               k.toLowerCase().includes("photo") ||
               k.toLowerCase().includes("pic") ||
-              (typeof v === "string" && (v as string).match(/\.(jpg|jpeg|png|webp)/i))
+              (typeof v === "string" &&
+                (v as string).match(/\.(jpg|jpeg|png|webp)/i)),
           );
           console.log("CJ Image fields:", JSON.stringify(imageFields));
           console.log("CJ productImage value:", sample.productImage);
@@ -154,7 +153,13 @@ const CJProducts: React.FC = () => {
           const raw = detail as any;
           (detail as any).productImage = getProductImage(raw);
         }
-        console.log("CJ Product detail:", JSON.stringify({ pid: detail.pid, productImage: detail.productImage }));
+        console.log(
+          "CJ Product detail:",
+          JSON.stringify({
+            pid: detail.pid,
+            productImage: detail.productImage,
+          }),
+        );
         setProductDetail(detail);
         setImportName(detail.productNameEn);
         const markup = cjSettings?.defaultMarkup || 30;
@@ -357,12 +362,23 @@ const CJProducts: React.FC = () => {
                             // Try without referrer policy
                             target.src = imgSrc;
                           } else {
-                            target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
+                            target.src =
+                              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
                           }
                         }}
                       />
                     ) : (
-                      <div className="product-image" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#f0f0f0", color: "#999", fontSize: "12px" }}>
+                      <div
+                        className="product-image"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#f0f0f0",
+                          color: "#999",
+                          fontSize: "12px",
+                        }}
+                      >
                         لا توجد صورة
                       </div>
                     );
@@ -452,7 +468,11 @@ const CJProducts: React.FC = () => {
             ) : productDetail ? (
               <>
                 <img
-                  src={productDetail.productImage?.startsWith("//") ? "https:" + productDetail.productImage : productDetail.productImage}
+                  src={
+                    productDetail.productImage?.startsWith("//")
+                      ? "https:" + productDetail.productImage
+                      : productDetail.productImage
+                  }
                   alt={productDetail.productNameEn}
                   className="detail-image"
                   referrerPolicy="no-referrer"

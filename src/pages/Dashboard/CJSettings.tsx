@@ -183,7 +183,8 @@ const CJSettings: React.FC = () => {
             الاتصال بـ CJ Dropshipping
           </div>
           <p className="card-desc">
-            أدخل بريدك الإلكتروني ومفتاح API من لوحة تحكم CJ Dropshipping للربط مع متجرك
+            أدخل بريدك الإلكتروني ومفتاح API من لوحة تحكم CJ Dropshipping للربط
+            مع متجرك
           </p>
 
           <div className="form-group">
