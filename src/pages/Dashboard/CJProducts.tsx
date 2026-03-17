@@ -38,15 +38,40 @@ const stripHtml = (html: string): string => {
   return (body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
 };
 
+// Extract first image URL - CJ API may return string or array
+const extractFirstImage = (value: unknown): string => {
+  if (!value) return "";
+  if (Array.isArray(value)) return (value[0] as string) || "";
+  if (typeof value === "string") {
+    // Check if it's a JSON array string
+    if (value.startsWith("[")) {
+      try {
+        const arr = JSON.parse(value);
+        if (Array.isArray(arr)) return arr[0] || "";
+      } catch { /* not JSON */ }
+    }
+    return value;
+  }
+  return "";
+};
+
 // CJ API may return image in different field names
 const getProductImage = (product: Record<string, unknown>): string => {
   return (
-    (product.productImage as string) ||
-    (product.productImageUrl as string) ||
-    (product.bigImage as string) ||
-    (product.productImg as string) ||
+    extractFirstImage(product.productImage) ||
+    extractFirstImage(product.productImageUrl) ||
+    extractFirstImage(product.bigImage) ||
+    extractFirstImage(product.productImg) ||
     ""
   );
+};
+
+// Resolve CJ image URL from potentially mixed types (string, array, JSON)
+const resolveCJImage = (url: unknown): string => {
+  const imgUrl = extractFirstImage(url);
+  if (!imgUrl) return "";
+  if (imgUrl.startsWith("//")) return "https:" + imgUrl;
+  return imgUrl;
 };
 
 const CJProducts: React.FC = () => {
@@ -148,11 +173,9 @@ const CJProducts: React.FC = () => {
       const result = await getCJProductDetail(pid);
       if (result.result && result.data) {
         const detail = result.data;
-        // Normalize image field name
-        if (!detail.productImage) {
-          const raw = detail as any;
-          (detail as any).productImage = getProductImage(raw);
-        }
+        // Normalize image field - CJ API may return array of URLs
+        const raw = detail as any;
+        (detail as any).productImage = getProductImage(raw);
         console.log(
           "CJ Product detail:",
           JSON.stringify({
@@ -200,8 +223,8 @@ const CJProducts: React.FC = () => {
         oldPrice: null,
         category: importCategory || productDetail.categoryName || "عام",
         images: [
-          variant?.variantImage || productDetail.productImage,
-          productDetail.productImage,
+          extractFirstImage(variant?.variantImage) || extractFirstImage(productDetail.productImage),
+          extractFirstImage(productDetail.productImage),
         ].filter(Boolean),
         stock: 999,
         featured: false,
@@ -213,7 +236,7 @@ const CJProducts: React.FC = () => {
         cjSku: variant?.variantSku || productDetail.productSku,
         cjCategoryId: productDetail.categoryId,
         cjSourcePrice: variant?.variantPrice || productDetail.sellPrice,
-        cjImageUrl: productDetail.productImage,
+        cjImageUrl: extractFirstImage(productDetail.productImage),
         supplierName: "CJ Dropshipping",
         supplierPrice:
           (variant?.variantPrice || productDetail.sellPrice) * rate,
@@ -247,7 +270,7 @@ const CJProducts: React.FC = () => {
         description: product.productNameEn,
         price: calculateSellingPrice(product.sellPrice, rate, markup),
         category: product.categoryName || "عام",
-        images: [product.productImage].filter(Boolean),
+        images: [extractFirstImage(product.productImage)].filter(Boolean),
         stock: 999,
         featured: false,
         specs: {},
@@ -256,7 +279,7 @@ const CJProducts: React.FC = () => {
         cjSku: product.productSku,
         cjCategoryId: product.categoryId,
         cjSourcePrice: product.sellPrice,
-        cjImageUrl: product.productImage,
+        cjImageUrl: extractFirstImage(product.productImage),
         supplierName: "CJ Dropshipping",
         supplierPrice: product.sellPrice * rate,
         supplierUrl: `https://cjdropshipping.com/product/${product.pid}`,
@@ -345,26 +368,18 @@ const CJProducts: React.FC = () => {
               return (
                 <div key={product.pid} className="cj-product-card">
                   {(() => {
-                    let imgSrc = product.productImage || "";
-                    // Fix protocol-relative URLs
-                    if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
+                    const imgSrc = resolveCJImage(product.productImage);
                     return imgSrc ? (
                       <img
                         src={imgSrc}
                         alt={product.productNameEn}
                         className="product-image"
                         referrerPolicy="no-referrer"
-                        loading="lazy"
+                        crossOrigin="anonymous"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          if (!target.dataset.retried) {
-                            target.dataset.retried = "1";
-                            // Try without referrer policy
-                            target.src = imgSrc;
-                          } else {
-                            target.src =
-                              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
-                          }
+                          target.src =
+                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
                         }}
                       />
                     ) : (
@@ -468,14 +483,11 @@ const CJProducts: React.FC = () => {
             ) : productDetail ? (
               <>
                 <img
-                  src={
-                    productDetail.productImage?.startsWith("//")
-                      ? "https:" + productDetail.productImage
-                      : productDetail.productImage
-                  }
+                  src={resolveCJImage(productDetail.productImage)}
                   alt={productDetail.productNameEn}
                   className="detail-image"
                   referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                 />
 
                 <div className="detail-info">
@@ -528,7 +540,7 @@ const CJProducts: React.FC = () => {
                       >
                         {variant.variantImage && (
                           <img
-                            src={variant.variantImage}
+                            src={resolveCJImage(variant.variantImage)}
                             alt={variant.variantNameEn}
                           />
                         )}

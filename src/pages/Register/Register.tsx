@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -128,6 +128,10 @@ const Register: React.FC = () => {
   return (
     <div className="login-page">
       <div className="login-container">
+        <Link to="/" className="back-home-btn">
+          <ArrowRight size={20} />
+          العودة للرئيسية
+        </Link>
         <div className="login-box">
           <div className="login-header">
             <Link to="/" className="login-logo">

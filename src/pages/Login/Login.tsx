@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
@@ -114,6 +114,10 @@ const Login: React.FC = () => {
   return (
     <div className="login-page">
       <div className="login-container">
+        <Link to="/" className="back-home-btn">
+          <ArrowRight size={20} />
+          العودة للرئيسية
+        </Link>
         <div className="login-box">
           <div className="login-header">
             <Link to="/" className="login-logo">

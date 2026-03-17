@@ -357,3 +357,35 @@ export const cjSyncOrderStatuses = functions.https.onCall(
     return { synced: results.length, results };
   },
 );
+
+// ==================== بروكسي صور CJ ====================
+export const cjImageProxy = functions.https.onRequest(async (req, res) => {
+  const url = req.query.url as string;
+
+  if (
+    !url ||
+    typeof url !== "string" ||
+    !url.startsWith("https://cf.cjdropshipping.com/")
+  ) {
+    res.status(400).send("Invalid URL");
+    return;
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      res.status(response.status).send("Image fetch failed");
+      return;
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    res.set("Content-Type", contentType);
+    res.set("Cache-Control", "public, max-age=604800"); // 7 days
+    res.set("Access-Control-Allow-Origin", "*");
+    res.send(buffer);
+  } catch {
+    res.status(500).send("Proxy error");
+  }
+});
