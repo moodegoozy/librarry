@@ -16,8 +16,8 @@ exports.checkCustomerEligibility = checkCustomerEligibility;
 // Tamara API Base URLs
 const TAMARA_SANDBOX_URL = "https://api-sandbox.tamara.co";
 const TAMARA_PRODUCTION_URL = "https://api.tamara.co";
-// استخدام sandbox للاختبار - تغيير لـ production عند الإطلاق
-const TAMARA_API_URL = TAMARA_SANDBOX_URL;
+// استخدام Production (Live)
+const TAMARA_API_URL = TAMARA_PRODUCTION_URL;
 // مفتاح API - سيتم تخزينه في Firestore settings
 let apiToken = null;
 /**

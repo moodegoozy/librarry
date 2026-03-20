@@ -44,6 +44,7 @@ const Checkout: React.FC = () => {
   const [step, setStep] = useState(1);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [tamaraProcessing, setTamaraProcessing] = useState(false);
+  const [paidWithTamara, setPaidWithTamara] = useState(false);
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
     freeShippingThreshold: 200,
     defaultShippingCost: 25,
@@ -154,6 +155,7 @@ const Checkout: React.FC = () => {
           localStorage.removeItem(`tamara_order_${pendingOrder}`);
 
           setOrderPlaced(true);
+          setPaidWithTamara(true);
           clearCart();
           setStep(3);
 
@@ -778,7 +780,11 @@ const Checkout: React.FC = () => {
                                   <CreditCard size={24} />
                                 )}
                                 {method.id === "tamara" && (
-                                  <Clock size={24} />
+                                  <img 
+                                    src="https://cdn.tamara.co/assets/svg/tamara-logo-badge-ar.svg" 
+                                    alt="Tamara" 
+                                    className="tamara-badge"
+                                  />
                                 )}
                                 <div>
                                   <strong>{method.name}</strong>
@@ -966,7 +972,16 @@ const Checkout: React.FC = () => {
                 <Check size={60} />
               </div>
               <h1>تم استلام طلبك بنجاح!</h1>
-              <p>شكراً لك على طلبك. سنتواصل معك قريباً لتأكيد الطلب.</p>
+              {paidWithTamara && (
+                <div className="payment-success-badge">
+                  <img 
+                    src="https://cdn.tamara.co/assets/svg/tamara-logo-badge-ar.svg" 
+                    alt="Tamara" 
+                  />
+                  <span>تم الدفع بنجاح عبر تمارا ✓</span>
+                </div>
+              )}
+              <p>شكراً لك على طلبك. {paidWithTamara ? 'تم استلام الدفع وسيتم شحن طلبك قريباً.' : 'سنتواصل معك قريباً لتأكيد الطلب.'}</p>
 
               <div className="order-actions">
                 <Link to="/account" className="btn btn-primary">
