@@ -199,3 +199,77 @@
   background: var(--gray);
   cursor: not-allowed;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .product-card {
+    border-radius: 12px;
+  }
+
+  .product-image {
+    height: 160px;
+  }
+
+  .product-content {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .product-name {
+    font-size: 14px;
+    -webkit-line-clamp: 2;
+  }
+
+  .product-price .current-price {
+    font-size: 16px;
+  }
+
+  .old-price {
+    font-size: 12px;
+  }
+
+  .add-to-cart-btn {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .discount-badge,
+  .featured-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .wishlist-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-image {
+    height: 140px;
+  }
+
+  .product-content {
+    padding: 10px;
+  }
+
+  .product-name {
+    font-size: 13px;
+  }
+
+  .product-price .current-price {
+    font-size: 15px;
+  }
+
+  .add-to-cart-btn {
+    padding: 8px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .add-to-cart-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
