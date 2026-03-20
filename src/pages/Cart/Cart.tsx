@@ -84,8 +84,8 @@ const Cart: React.FC = () => {
         <div className="cart-content">
           {/* Cart Items */}
           <div className="cart-items">
-            {cart.map((item) => (
-              <div key={item.product.id} className="cart-item">
+            {cart.map((item, index) => (
+              <div key={`${item.product.id}-${index}`} className="cart-item">
                 <img
                   src={
                     item.product.images?.[0] ||
@@ -105,6 +105,16 @@ const Cart: React.FC = () => {
                     {categories.find((c) => c.id === item.product.category)
                       ?.name || item.product.category}
                   </span>
+                  {/* عرض المتغيرات المختارة */}
+                  {item.selectedVariants && Object.keys(item.selectedVariants).length > 0 && (
+                    <div className="item-variants">
+                      {Object.entries(item.selectedVariants).map(([key, value]) => (
+                        <span key={key} className="variant-tag">
+                          {key}: {value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="item-price-mobile">
                     {formatPrice(item.product.price)}
                   </div>
@@ -113,7 +123,7 @@ const Cart: React.FC = () => {
                   <button
                     className="qty-btn"
                     onClick={() =>
-                      updateQuantity(item.product.id, item.quantity - 1)
+                      updateQuantity(item.product.id, item.quantity - 1, item.selectedVariants)
                     }
                   >
                     <Minus size={16} />
@@ -122,7 +132,7 @@ const Cart: React.FC = () => {
                   <button
                     className="qty-btn"
                     onClick={() =>
-                      updateQuantity(item.product.id, item.quantity + 1)
+                      updateQuantity(item.product.id, item.quantity + 1, item.selectedVariants)
                     }
                   >
                     <Plus size={16} />
@@ -133,7 +143,7 @@ const Cart: React.FC = () => {
                 </div>
                 <button
                   className="remove-btn"
-                  onClick={() => removeFromCart(item.product.id)}
+                  onClick={() => removeFromCart(item.product.id, item.selectedVariants)}
                 >
                   <Trash2 size={18} />
                 </button>

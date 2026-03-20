@@ -4,6 +4,7 @@ export interface ProductVariantOption {
   name: string; // مثل "أحمر", "أزرق", "L", "XL"
   value: string; // القيمة المخزنة
   image?: string; // صورة هذا الخيار (للألوان مثلاً)
+  images?: string[]; // صور متعددة لهذا الخيار (من أمازون)
 }
 
 export interface ProductVariantType {
@@ -199,6 +200,7 @@ export interface User {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedVariants?: Record<string, string>; // الخيارات المختارة (اللون، المقاس...)
 }
 
 export interface DashboardStats {

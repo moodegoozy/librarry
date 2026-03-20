@@ -243,6 +243,100 @@
   background: var(--danger);
 }
 
+/* Variants Selection */
+.variants-selection {
+  margin: 20px 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+
+.variant-group {
+  margin-bottom: 20px;
+}
+
+.variant-group:last-child {
+  margin-bottom: 0;
+}
+
+.variant-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--dark);
+  font-size: 15px;
+}
+
+.variant-label svg {
+  color: var(--primary);
+}
+
+.variant-label .selected-value {
+  color: var(--primary);
+  font-weight: 500;
+  margin-right: auto;
+  background: var(--primary-light);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.variant-options-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.variant-option-btn {
+  padding: 10px 18px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: var(--dark);
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
+.variant-option-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.variant-option-btn.selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.variant-option-btn.has-image {
+  padding: 4px;
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+}
+
+.variant-option-btn.has-image .option-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.variant-option-btn.has-image.selected {
+  border-width: 3px;
+  border-color: var(--primary);
+  background: white;
+}
+
+.variant-option-btn.has-image:hover {
+  transform: scale(1.05);
+}
+
 /* Description Preview */
 .product-desc-preview {
   color: var(--dark);

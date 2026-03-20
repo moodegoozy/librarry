@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ShoppingCart,
@@ -13,6 +13,8 @@ import {
   Star,
   Package,
   ArrowRight,
+  Palette,
+  Ruler,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import ProductCard from "../../components/ProductCard/ProductCard";
@@ -45,6 +47,7 @@ const ProductDetail: React.FC = () => {
     "description" | "specs" | "shipping"
   >("description");
   const [addedToCart, setAddedToCart] = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   const product = products.find((p) => p.id === id);
   const categoryName = product
@@ -57,8 +60,51 @@ const ProductDetail: React.FC = () => {
     setSelectedImage(0);
     setQuantity(1);
     setAddedToCart(false);
+    setSelectedVariants({});
     window.scrollTo(0, 0);
   }, [id]);
+
+  // الحصول على صور المتغير المختار (اللون)
+  const variantImages = useMemo((): string[] | null => {
+    if (!product?.hasVariants || !product.variantTypes) return null;
+    
+    const colorType = product.variantTypes.find(
+      (vt) => vt.name === "اللون" || vt.name.toLowerCase() === "color"
+    );
+    
+    if (colorType && selectedVariants[colorType.name]) {
+      const selectedOption = colorType.options.find(
+        (opt) => opt.value === selectedVariants[colorType.name]
+      );
+      // جرب images أولاً، ثم image كـ fallback
+      if (selectedOption?.images && selectedOption.images.length > 0) {
+        return selectedOption.images;
+      }
+      if (selectedOption?.image) {
+        return [selectedOption.image];
+      }
+    }
+    return null;
+  }, [product, selectedVariants]);
+
+  // الصور المعروضة (صور المتغير أو الصور الأصلية)
+  const displayImages: string[] = variantImages || product?.images || [];
+
+  // التحقق من اكتمال اختيار المتغيرات
+  const allVariantsSelected = useMemo(() => {
+    if (!product?.hasVariants || !product.variantTypes) return true;
+    return product.variantTypes.every((vt) => selectedVariants[vt.name]);
+  }, [product, selectedVariants]);
+
+  // اختيار متغير
+  const handleSelectVariant = (typeName: string, value: string) => {
+    setSelectedVariants((prev) => ({ ...prev, [typeName]: value }));
+    
+    // إذا اختار لون، غير الصورة الرئيسية
+    if (typeName === "اللون" || typeName.toLowerCase() === "color") {
+      setSelectedImage(0);
+    }
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ar-SA", {
@@ -69,7 +115,20 @@ const ProductDetail: React.FC = () => {
 
   const handleAddToCart = () => {
     if (product) {
-      addToCart(product, quantity);
+      // إذا المنتج له متغيرات ولم يتم اختيارها كلها
+      if (product.hasVariants && product.variantTypes && !allVariantsSelected) {
+        alert("يرجى اختيار جميع الخيارات قبل الإضافة للسلة");
+        return;
+      }
+      
+      // إضافة المنتج مع معلومات المتغيرات
+      const productWithVariants = {
+        ...product,
+        selectedVariants: Object.keys(selectedVariants).length > 0 ? selectedVariants : undefined,
+        images: displayImages, // استخدم صور المتغير المختار
+      };
+      
+      addToCart(productWithVariants, quantity);
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     }
@@ -139,13 +198,13 @@ const ProductDetail: React.FC = () => {
               )}
               {product.featured && <span className="featured-badge">مميز</span>}
               <img
-                src={product.images[selectedImage] || "/placeholder.jpg"}
+                src={displayImages[selectedImage] || "/placeholder.jpg"}
                 alt={product.name}
               />
             </div>
-            {product.images.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="image-thumbnails">
-                {product.images.map((img, idx) => (
+                {displayImages.map((img, idx) => (
                   <button
                     key={idx}
                     className={`thumbnail ${idx === selectedImage ? "active" : ""}`}
@@ -213,6 +272,48 @@ const ProductDetail: React.FC = () => {
               )}
             </div>
 
+            {/* Variants Selection */}
+            {product.hasVariants && product.variantTypes && product.variantTypes.length > 0 && (
+              <div className="variants-selection">
+                {product.variantTypes.map((variantType) => (
+                  <div key={variantType.name} className="variant-group">
+                    <div className="variant-label">
+                      {variantType.name === "اللون" || variantType.name.toLowerCase() === "color" ? (
+                        <Palette size={16} />
+                      ) : (
+                        <Ruler size={16} />
+                      )}
+                      <span>{variantType.name}:</span>
+                      {selectedVariants[variantType.name] && (
+                        <span className="selected-value">{selectedVariants[variantType.name]}</span>
+                      )}
+                    </div>
+                    <div className="variant-options-list">
+                      {variantType.options.map((option) => {
+                        const isColor = variantType.name === "اللون" || variantType.name.toLowerCase() === "color";
+                        const isSelected = selectedVariants[variantType.name] === option.value;
+                        
+                        return (
+                          <button
+                            key={option.value}
+                            className={`variant-option-btn ${isSelected ? "selected" : ""} ${isColor && option.image ? "has-image" : ""}`}
+                            onClick={() => handleSelectVariant(variantType.name, option.value)}
+                            title={option.value}
+                          >
+                            {isColor && option.image ? (
+                              <img src={option.image} alt={option.value} className="option-image" />
+                            ) : (
+                              <span className="option-text">{option.value}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Quantity & Add to Cart */}
             <div className="purchase-section">
               <div className="quantity-selector">
@@ -236,10 +337,10 @@ const ProductDetail: React.FC = () => {
               <button
                 className={`btn btn-primary btn-lg add-to-cart-main ${addedToCart ? "added" : ""}`}
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={product.stock === 0 || (product.hasVariants && !allVariantsSelected)}
               >
                 <ShoppingCart size={20} />
-                {addedToCart ? "تمت الإضافة ✓" : "أضف للسلة"}
+                {addedToCart ? "تمت الإضافة ✓" : product.hasVariants && !allVariantsSelected ? "اختر الخيارات" : "أضف للسلة"}
               </button>
             </div>
 

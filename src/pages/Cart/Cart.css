@@ -102,6 +102,22 @@
   color: var(--gray);
 }
 
+.item-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.variant-tag {
+  font-size: 12px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
 .item-price-mobile {
   display: none;
   font-weight: 700;
