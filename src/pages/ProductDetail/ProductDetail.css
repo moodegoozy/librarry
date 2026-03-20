@@ -107,51 +107,31 @@
 }
 
 .image-thumbnails {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) var(--light);
-}
-
-.image-thumbnails::-webkit-scrollbar {
-  height: 4px;
-}
-
-.image-thumbnails::-webkit-scrollbar-track {
-  background: var(--light);
-  border-radius: 10px;
-}
-
-.image-thumbnails::-webkit-scrollbar-thumb {
-  background: var(--primary);
-  border-radius: 10px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 10px 0;
 }
 
 .thumbnail {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
+  aspect-ratio: 1;
+  width: 100%;
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
-  flex-shrink: 0;
   background: white;
-  padding: 3px;
+  padding: 2px;
 }
 
 .thumbnail:hover {
   border-color: var(--primary);
-  transform: scale(1.05);
 }
 
 .thumbnail.active {
   border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-  border-width: 2px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
 
 .thumbnail img {
@@ -268,13 +248,14 @@
 
 /* Variants Selection */
 .variants-selection {
-  margin: 20px 0;
-  padding: 16px 0;
-  border-top: 1px solid var(--border);
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--light);
+  border-radius: 12px;
 }
 
 .variant-group {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .variant-group:last-child {
@@ -285,79 +266,108 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   font-weight: 600;
   color: var(--dark);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .variant-label svg {
+  color: var(--primary);
+  width: 18px;
+  height: 18px;
+}
+
+.variant-label .color-title {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--primary);
 }
 
 .variant-label .selected-value {
   color: var(--primary);
-  font-weight: 500;
+  font-weight: 600;
   margin-right: auto;
-  background: var(--primary-light);
-  padding: 2px 10px;
+  background: white;
+  padding: 3px 12px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
+  border: 1px solid var(--primary);
 }
 
 .variant-options-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
-.variant-option-btn {
-  padding: 10px 18px;
+/* دوائر الألوان الصغيرة والأنيقة */
+.color-group {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 99, 235, 0.1);
+}
+
+.color-options {
+  gap: 6px;
+}
+
+.variant-option-btn.color-circle {
+  width: 28px;
+  height: 28px;
+  padding: 1px;
   border: 2px solid var(--border);
-  border-radius: 10px;
+  border-radius: 50%;
+  overflow: hidden;
   background: white;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 14px;
-  color: var(--dark);
-  font-weight: 500;
-  min-width: 50px;
-  text-align: center;
 }
 
-.variant-option-btn:hover {
-  border-color: var(--primary);
-  background: var(--primary-light);
-}
-
-.variant-option-btn.selected {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: white;
-}
-
-.variant-option-btn.has-image {
-  padding: 4px;
-  width: 60px;
-  height: 60px;
-  overflow: hidden;
-}
-
-.variant-option-btn.has-image .option-image {
+.variant-option-btn.color-circle .color-swatch {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 50%;
 }
 
-.variant-option-btn.has-image.selected {
-  border-width: 3px;
+.variant-option-btn.color-circle:hover {
   border-color: var(--primary);
-  background: white;
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
-.variant-option-btn.has-image:hover {
-  transform: scale(1.05);
+.variant-option-btn.color-circle.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px white, 0 0 0 3px var(--primary);
+  transform: scale(1.1);
+}
+
+/* أزرار المقاسات والخيارات الأخرى */
+.variant-option-btn:not(.color-circle) {
+  padding: 8px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: var(--dark);
+  font-weight: 500;
+  min-width: 44px;
+  text-align: center;
+}
+
+.variant-option-btn:not(.color-circle):hover {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.variant-option-btn:not(.color-circle).selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
 }
 
 /* Description Preview */
@@ -739,9 +749,6 @@
   }
 
   .thumbnail {
-    width: 52px;
-    height: 52px;
-    min-width: 52px;
     border-radius: 6px;
     padding: 2px;
   }
@@ -865,13 +872,25 @@
     margin-bottom: 14px;
   }
 
+  .color-group {
+    padding: 10px;
+  }
+
   .variant-label {
     font-size: 14px;
     margin-bottom: 10px;
   }
 
+  .variant-label .color-title {
+    font-size: 13px;
+  }
+
   .variant-options-list {
     gap: 8px;
+  }
+
+  .color-options {
+    gap: 5px;
   }
 
   .variant-option-btn {
@@ -880,10 +899,9 @@
     min-width: 44px;
   }
 
-  .variant-option-btn.has-image {
-    width: 46px;
-    height: 46px;
-    padding: 3px;
+  .variant-option-btn.color-circle {
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -915,9 +933,7 @@
   }
 
   .thumbnail {
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
+    border-radius: 6px;
   }
 
   .product-price-section .current-price {
@@ -984,8 +1000,8 @@
     min-width: 40px;
   }
 
-  .variant-option-btn.has-image {
-    width: 42px;
-    height: 42px;
+  .variant-option-btn.color-circle {
+    width: 22px;
+    height: 22px;
   }
 }

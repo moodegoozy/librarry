@@ -275,42 +275,50 @@ const ProductDetail: React.FC = () => {
             {/* Variants Selection */}
             {product.hasVariants && product.variantTypes && product.variantTypes.length > 0 && (
               <div className="variants-selection">
-                {product.variantTypes.map((variantType) => (
-                  <div key={variantType.name} className="variant-group">
-                    <div className="variant-label">
-                      {variantType.name === "اللون" || variantType.name.toLowerCase() === "color" ? (
-                        <Palette size={16} />
-                      ) : (
-                        <Ruler size={16} />
-                      )}
-                      <span>{variantType.name}:</span>
-                      {selectedVariants[variantType.name] && (
-                        <span className="selected-value">{selectedVariants[variantType.name]}</span>
-                      )}
+                {product.variantTypes.map((variantType) => {
+                  const isColorType = variantType.name === "اللون" || variantType.name.toLowerCase() === "color";
+                  
+                  return (
+                    <div key={variantType.name} className={`variant-group ${isColorType ? "color-group" : ""}`}>
+                      <div className="variant-label">
+                        {isColorType ? (
+                          <>
+                            <Palette size={16} />
+                            <span className="color-title">اختر لونك المفضل</span>
+                          </>
+                        ) : (
+                          <>
+                            <Ruler size={16} />
+                            <span>{variantType.name}:</span>
+                          </>
+                        )}
+                        {selectedVariants[variantType.name] && (
+                          <span className="selected-value">{selectedVariants[variantType.name]}</span>
+                        )}
+                      </div>
+                      <div className={`variant-options-list ${isColorType ? "color-options" : ""}`}>
+                        {variantType.options.map((option) => {
+                          const isSelected = selectedVariants[variantType.name] === option.value;
+                          
+                          return (
+                            <button
+                              key={option.value}
+                              className={`variant-option-btn ${isSelected ? "selected" : ""} ${isColorType && option.image ? "color-circle" : ""}`}
+                              onClick={() => handleSelectVariant(variantType.name, option.value)}
+                              title={option.value}
+                            >
+                              {isColorType && option.image ? (
+                                <img src={option.image} alt={option.value} className="color-swatch" />
+                              ) : (
+                                <span className="option-text">{option.value}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="variant-options-list">
-                      {variantType.options.map((option) => {
-                        const isColor = variantType.name === "اللون" || variantType.name.toLowerCase() === "color";
-                        const isSelected = selectedVariants[variantType.name] === option.value;
-                        
-                        return (
-                          <button
-                            key={option.value}
-                            className={`variant-option-btn ${isSelected ? "selected" : ""} ${isColor && option.image ? "has-image" : ""}`}
-                            onClick={() => handleSelectVariant(variantType.name, option.value)}
-                            title={option.value}
-                          >
-                            {isColor && option.image ? (
-                              <img src={option.image} alt={option.value} className="option-image" />
-                            ) : (
-                              <span className="option-text">{option.value}</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

@@ -14,6 +14,7 @@ import {
   Link2,
   ExternalLink,
   Palette,
+  Tag,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
@@ -55,6 +56,8 @@ const Products: React.FC = () => {
     asin: "",
     brand: "",
     features: [] as string[],
+    // المواصفات
+    specs: {} as Record<string, string>,
   });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +111,8 @@ const Products: React.FC = () => {
         asin: product.asin || "",
         brand: product.brand || "",
         features: product.features || [],
+        // المواصفات
+        specs: product.specs || {},
       });
     } else {
       setEditingProduct(null);
@@ -131,6 +136,7 @@ const Products: React.FC = () => {
         asin: "",
         brand: "",
         features: [],
+        specs: {},
       });
     }
     setShowModal(true);
@@ -258,6 +264,10 @@ const Products: React.FC = () => {
       }
       if (formData.features && formData.features.length > 0) {
         productData.features = formData.features;
+      }
+      // المواصفات
+      if (formData.specs && Object.keys(formData.specs).length > 0) {
+        productData.specs = formData.specs;
       }
 
       if (editingProduct) {
@@ -426,6 +436,7 @@ const Products: React.FC = () => {
         asin: scraped.asin || "",
         brand: scraped.brand || "",
         features: scraped.features || [],
+        specs: scraped.specs || {},
       });
       setEditingProduct(null);
       setPendingFiles([]);
@@ -472,6 +483,7 @@ const Products: React.FC = () => {
           asin: scraped.asin || "",
           brand: scraped.brand || "",
           features: scraped.features || [],
+          specs: scraped.specs || {},
         });
         setEditingProduct(null);
         setPendingFiles([]);
@@ -506,6 +518,7 @@ const Products: React.FC = () => {
       if (scraped.asin) productData.asin = scraped.asin;
       if (scraped.brand) productData.brand = scraped.brand;
       if (scraped.features && scraped.features.length > 0) productData.features = scraped.features;
+      if (scraped.specs && Object.keys(scraped.specs).length > 0) productData.specs = scraped.specs;
       
       // إضافة المتغيرات
       if (scraped.hasVariants && variantTypes && variantTypes.length > 0) {
@@ -835,13 +848,27 @@ const Products: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">الوصف</label>
+                  <div className="description-header">
+                    <label className="form-label">الوصف</label>
+                    {formData.supplierUrl && (
+                      <a
+                        href={formData.supplierUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-copy-desc"
+                        title="افتح صفحة المنتج لنسخ الوصف"
+                      >
+                        📋 نسخ الوصف من المصدر
+                      </a>
+                    )}
+                  </div>
                   <textarea
                     className="form-textarea"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
+                    placeholder="اكتب وصف المنتج هنا أو انسخه من صفحة المنتج الأصلية..."
                   />
                 </div>
 
@@ -999,6 +1026,72 @@ const Products: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* قسم المواصفات التفصيلية */}
+                <div className="specs-section">
+                  <label className="form-label">
+                    <Tag size={16} />
+                    المواصفات التفصيلية
+                  </label>
+                  <div className="specs-editor">
+                    {Object.entries(formData.specs).map(([key, value], idx) => (
+                      <div key={idx} className="spec-row">
+                        <input
+                          type="text"
+                          className="form-control spec-key"
+                          placeholder="المواصفة (مثل: الوزن)"
+                          value={key}
+                          onChange={(e) => {
+                            const newSpecs = { ...formData.specs };
+                            const oldValue = newSpecs[key];
+                            delete newSpecs[key];
+                            if (e.target.value) {
+                              newSpecs[e.target.value] = oldValue;
+                            }
+                            setFormData({ ...formData, specs: newSpecs });
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="form-control spec-value"
+                          placeholder="القيمة (مثل: 500 جرام)"
+                          value={value}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              specs: { ...formData.specs, [key]: e.target.value }
+                            });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-remove-spec"
+                          onClick={() => {
+                            const newSpecs = { ...formData.specs };
+                            delete newSpecs[key];
+                            setFormData({ ...formData, specs: newSpecs });
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn-add-spec"
+                      onClick={() => {
+                        const newKey = `مواصفة_${Object.keys(formData.specs).length + 1}`;
+                        setFormData({
+                          ...formData,
+                          specs: { ...formData.specs, [newKey]: "" }
+                        });
+                      }}
+                    >
+                      <Plus size={16} />
+                      إضافة مواصفة
+                    </button>
+                  </div>
+                </div>
 
                 {/* قسم معلومات المصدر */}
                 {(formData.supplierUrl || formData.supplierName) && (

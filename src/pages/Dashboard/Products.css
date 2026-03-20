@@ -582,3 +582,115 @@
   color: var(--gray);
   text-align: center;
 }
+
+/* قسم المواصفات */
+.specs-section {
+  margin-top: 20px;
+}
+
+.specs-section .form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.specs-editor {
+  background: var(--light);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.spec-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.spec-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.spec-key {
+  flex: 0 0 40%;
+}
+
+.spec-value {
+  flex: 1;
+}
+
+.btn-remove-spec {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-spec:hover {
+  background: #fecaca;
+}
+
+.btn-add-spec {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: white;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-spec:hover {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+/* Description Header with Copy Button */
+.description-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.description-header .form-label {
+  margin-bottom: 0;
+}
+
+.btn-copy-desc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-copy-desc:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
