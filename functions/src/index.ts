@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as cj from "./cjClient";
 import * as paypal from "./paypalClient";
+import * as tamara from "./tamaraClient";
 
 admin.initializeApp();
 
@@ -553,6 +554,255 @@ export const paypalGetOrderStatus = functions.https.onCall(
     } catch (error) {
       console.error("PayPal get order error:", error);
       const msg = error instanceof Error ? error.message : "خطأ في جلب حالة الطلب";
+      throw new functions.https.HttpsError("internal", msg);
+    }
+  }
+);
+
+// ==================== Tamara - إعداد مفتاح API ====================
+async function initTamaraToken(): Promise<void> {
+  // أولاً: التحقق من Firestore
+  const settingsDoc = await admin.firestore().doc("settings/tamara").get();
+  const settings = settingsDoc.data();
+  if (settings?.apiToken) {
+    tamara.setApiToken(settings.apiToken);
+    return;
+  }
+
+  // ثانياً: التحقق من متغير البيئة
+  const envToken = process.env.TAMARA_API_TOKEN;
+  if (envToken) {
+    tamara.setApiToken(envToken);
+    return;
+  }
+
+  throw new functions.https.HttpsError(
+    "failed-precondition",
+    "مفتاح Tamara API غير مُعد. يرجى إعداده في الإعدادات."
+  );
+}
+
+// ==================== Tamara - إنشاء جلسة دفع ====================
+export const tamaraCreateCheckout = functions.https.onCall(
+  async (data, context) => {
+    // التحقق من تسجيل الدخول
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "يجب تسجيل الدخول لإتمام الدفع"
+      );
+    }
+
+    const {
+      orderReferenceId,
+      totalAmount,
+      currency,
+      items,
+      consumer,
+      shippingAddress,
+      shippingAmount,
+      successUrl,
+      failureUrl,
+      cancelUrl,
+      description,
+    } = data;
+
+    if (!totalAmount || totalAmount <= 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "المبلغ غير صحيح"
+      );
+    }
+
+    if (!orderReferenceId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "معرف الطلب مطلوب"
+      );
+    }
+
+    if (!items || items.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "عناصر الطلب مطلوبة"
+      );
+    }
+
+    try {
+      await initTamaraToken();
+
+      const result = await tamara.createCheckoutSession({
+        order_reference_id: orderReferenceId,
+        total_amount: totalAmount,
+        currency: currency || "SAR",
+        items,
+        consumer,
+        shipping_address: shippingAddress,
+        shipping_amount: shippingAmount || 0,
+        success_url: successUrl,
+        failure_url: failureUrl,
+        cancel_url: cancelUrl,
+        description,
+      });
+
+      // حفظ معلومات الدفع المعلق
+      await admin.firestore().doc(`pending_payments/${orderReferenceId}`).set({
+        userId: context.auth.uid,
+        paymentMethod: "tamara",
+        tamaraCheckoutId: result.checkout_id,
+        tamaraCheckoutUrl: result.checkout_url,
+        totalAmount,
+        currency: currency || "SAR",
+        status: "CREATED",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Tamara create checkout error:", error);
+      const msg = error instanceof Error ? error.message : "خطأ في إنشاء جلسة الدفع";
+      throw new functions.https.HttpsError("internal", msg);
+    }
+  }
+);
+
+// ==================== Tamara - التحقق من حالة الدفع ====================
+export const tamaraGetPaymentStatus = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "يجب تسجيل الدخول"
+      );
+    }
+
+    const { checkoutId } = data;
+
+    if (!checkoutId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "معرف جلسة الدفع مطلوب"
+      );
+    }
+
+    try {
+      await initTamaraToken();
+      const result = await tamara.getPaymentStatus(checkoutId);
+      return result;
+    } catch (error) {
+      console.error("Tamara get payment status error:", error);
+      const msg = error instanceof Error ? error.message : "خطأ في جلب حالة الدفع";
+      throw new functions.https.HttpsError("internal", msg);
+    }
+  }
+);
+
+// ==================== Tamara - تأكيد الطلب (Authorize) ====================
+export const tamaraAuthorizeOrder = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "يجب تسجيل الدخول"
+      );
+    }
+
+    const { orderId, firestoreOrderId } = data;
+
+    if (!orderId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "معرف طلب Tamara مطلوب"
+      );
+    }
+
+    try {
+      await initTamaraToken();
+      const result = await tamara.authorizeOrder(orderId);
+
+      // تحديث الطلب في Firestore
+      if (firestoreOrderId) {
+        await admin.firestore().doc(`orders/${firestoreOrderId}`).update({
+          paymentStatus: "paid",
+          tamaraOrderId: orderId,
+          tamaraStatus: result.status,
+          paidAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Tamara authorize error:", error);
+      const msg = error instanceof Error ? error.message : "خطأ في تأكيد الطلب";
+      throw new functions.https.HttpsError("internal", msg);
+    }
+  }
+);
+
+// ==================== Tamara - حفظ إعدادات API ====================
+export const tamaraSaveSettings = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+
+    const { apiToken } = data;
+
+    if (!apiToken) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "مفتاح API مطلوب"
+      );
+    }
+
+    try {
+      await admin.firestore().doc("settings/tamara").set({
+        apiToken,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: context.auth!.uid,
+      });
+
+      return { success: true, message: "تم حفظ إعدادات Tamara بنجاح" };
+    } catch (error) {
+      console.error("Tamara save settings error:", error);
+      const msg = error instanceof Error ? error.message : "خطأ في حفظ الإعدادات";
+      throw new functions.https.HttpsError("internal", msg);
+    }
+  }
+);
+
+// ==================== Tamara - اختبار الاتصال ====================
+export const tamaraTestConnection = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+
+    const { apiToken } = data;
+
+    if (!apiToken) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "مفتاح API مطلوب للاختبار"
+      );
+    }
+
+    try {
+      // تعيين المفتاح مؤقتاً للاختبار
+      tamara.setApiToken(apiToken);
+
+      // محاولة التحقق من أهلية عميل وهمي
+      const result = await tamara.checkCustomerEligibility(
+        "+966500000000",
+        100,
+        "SAR"
+      );
+
+      return {
+        success: true,
+        message: "تم الاتصال بـ Tamara بنجاح",
+        data: result,
+      };
+    } catch (error) {
+      console.error("Tamara test connection error:", error);
+      const msg = error instanceof Error ? error.message : "فشل الاتصال بـ Tamara";
       throw new functions.https.HttpsError("internal", msg);
     }
   }
