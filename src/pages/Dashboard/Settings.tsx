@@ -28,8 +28,8 @@ const Settings: React.FC = () => {
 
   const [storeSettings, setStoreSettings] = useState({
     storeName: "جبوري للإلكترونيات",
-    storeEmail: "info@jaboory.com",
-    storePhone: "920000000",
+    storeEmail: "jaboor1994@gmail.com",
+    storePhone: "0556122411",
     storeAddress: "المملكة العربية السعودية",
     currency: "SAR",
     language: "ar",

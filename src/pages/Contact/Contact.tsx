@@ -62,7 +62,7 @@ const Contact: React.FC = () => {
               </div>
               <div>
                 <h3>اتصل بنا</h3>
-                <p>920000000</p>
+                <p>0556122411</p>
                 <span>متاح 24/7</span>
               </div>
             </div>
@@ -73,7 +73,7 @@ const Contact: React.FC = () => {
               </div>
               <div>
                 <h3>البريد الإلكتروني</h3>
-                <p>info@jaboory.com</p>
+                <p>jaboor1994@gmail.com</p>
                 <span>نرد خلال 24 ساعة</span>
               </div>
             </div>
@@ -101,7 +101,7 @@ const Contact: React.FC = () => {
 
             <div className="whatsapp-btn">
               <a
-                href="https://wa.me/966920000000"
+                href="https://wa.me/966556122411"
                 target="_blank"
                 rel="noopener noreferrer"
               >

@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import * as cj from "./cjClient";
 import * as paypal from "./paypalClient";
 import * as tamara from "./tamaraClient";
+import { scrapeAmazonProduct, scrapeAmazonWithApi } from "./amazonScraper";
 
 admin.initializeApp();
 
@@ -1175,7 +1176,7 @@ function parseGeneric(html: string, url: string): ScrapedProduct {
 }
 
 export const scrapeProductFromUrl = functions
-  .runWith({ timeoutSeconds: 60, memory: "512MB" })
+  .runWith({ timeoutSeconds: 120, memory: "1GB" })
   .https.onCall(async (data, context) => {
     await verifyAdmin(context.auth ?? undefined);
 
@@ -1188,7 +1189,40 @@ export const scrapeProductFromUrl = functions
     try {
       console.log("[Scraper] Fetching URL:", url);
 
-      // Fetch with browser-like headers
+      const siteName = getSiteName(url);
+      
+      // استخدام السكرابر الاحترافي للأمازون
+      if (siteName.includes("Amazon")) {
+        console.log("[Scraper] Using professional Amazon scraper...");
+        
+        // محاولة أولى: السكرابر المحلي
+        let result = await scrapeAmazonProduct(url);
+        
+        // إذا فشل، حاول مع ScraperAPI
+        if (!result.name && !result.nameEn) {
+          console.log("[Scraper] Local scraper failed, trying ScraperAPI...");
+          const scraperApiKey = process.env.SCRAPER_API_KEY;
+          if (scraperApiKey) {
+            result = await scrapeAmazonWithApi(url, scraperApiKey);
+          }
+        }
+        
+        if (!result.name && !result.nameEn) {
+          throw new Error("لم يتم العثور على بيانات المنتج من أمازون. قد يكون الرابط خاطئ أو المنتج غير متاح.");
+        }
+        
+        console.log("[Scraper] Amazon Result:", {
+          name: result.name?.substring(0, 50),
+          price: result.price,
+          images: result.images.length,
+          brand: result.brand,
+          asin: result.asin,
+        });
+        
+        return result;
+      }
+
+      // للمواقع الأخرى، استخدم السكرابر العام
       const response = await fetch(url, {
         headers: BROWSER_HEADERS,
         redirect: "follow",
@@ -1215,14 +1249,7 @@ export const scrapeProductFromUrl = functions
         throw new Error("الموقع يطلب التحقق البشري (Captcha). حاول لاحقاً.");
       }
 
-      const siteName = getSiteName(url);
-      let result: ScrapedProduct;
-
-      if (siteName.includes("Amazon")) {
-        result = parseAmazon(html, url);
-      } else {
-        result = parseGeneric(html, url);
-      }
+      const result = parseGeneric(html, url);
 
       if (!result.name && !result.nameEn) {
         throw new Error(`لم يتم العثور على بيانات منتج من ${siteName}. الموقع قد يحظر الوصول التلقائي.`);

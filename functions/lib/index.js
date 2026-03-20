@@ -39,6 +39,7 @@ const admin = __importStar(require("firebase-admin"));
 const cj = __importStar(require("./cjClient"));
 const paypal = __importStar(require("./paypalClient"));
 const tamara = __importStar(require("./tamaraClient"));
+const amazonScraper_1 = require("./amazonScraper");
 admin.initializeApp();
 // التحقق من أن المستخدم أدمن
 async function verifyAdmin(auth) {
@@ -1019,9 +1020,9 @@ function parseGeneric(html, url) {
     return product;
 }
 exports.scrapeProductFromUrl = functions
-    .runWith({ timeoutSeconds: 60, memory: "512MB" })
+    .runWith({ timeoutSeconds: 120, memory: "1GB" })
     .https.onCall(async (data, context) => {
-    var _a, _b;
+    var _a, _b, _c;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
     const { url } = data;
     if (!url) {
@@ -1029,7 +1030,33 @@ exports.scrapeProductFromUrl = functions
     }
     try {
         console.log("[Scraper] Fetching URL:", url);
-        // Fetch with browser-like headers
+        const siteName = getSiteName(url);
+        // استخدام السكرابر الاحترافي للأمازون
+        if (siteName.includes("Amazon")) {
+            console.log("[Scraper] Using professional Amazon scraper...");
+            // محاولة أولى: السكرابر المحلي
+            let result = await (0, amazonScraper_1.scrapeAmazonProduct)(url);
+            // إذا فشل، حاول مع ScraperAPI
+            if (!result.name && !result.nameEn) {
+                console.log("[Scraper] Local scraper failed, trying ScraperAPI...");
+                const scraperApiKey = process.env.SCRAPER_API_KEY;
+                if (scraperApiKey) {
+                    result = await (0, amazonScraper_1.scrapeAmazonWithApi)(url, scraperApiKey);
+                }
+            }
+            if (!result.name && !result.nameEn) {
+                throw new Error("لم يتم العثور على بيانات المنتج من أمازون. قد يكون الرابط خاطئ أو المنتج غير متاح.");
+            }
+            console.log("[Scraper] Amazon Result:", {
+                name: (_b = result.name) === null || _b === void 0 ? void 0 : _b.substring(0, 50),
+                price: result.price,
+                images: result.images.length,
+                brand: result.brand,
+                asin: result.asin,
+            });
+            return result;
+        }
+        // للمواقع الأخرى، استخدم السكرابر العام
         const response = await fetch(url, {
             headers: BROWSER_HEADERS,
             redirect: "follow",
@@ -1049,19 +1076,12 @@ exports.scrapeProductFromUrl = functions
             console.log("[Scraper] Captcha/bot detection detected");
             throw new Error("الموقع يطلب التحقق البشري (Captcha). حاول لاحقاً.");
         }
-        const siteName = getSiteName(url);
-        let result;
-        if (siteName.includes("Amazon")) {
-            result = parseAmazon(html, url);
-        }
-        else {
-            result = parseGeneric(html, url);
-        }
+        const result = parseGeneric(html, url);
         if (!result.name && !result.nameEn) {
             throw new Error(`لم يتم العثور على بيانات منتج من ${siteName}. الموقع قد يحظر الوصول التلقائي.`);
         }
         console.log("[Scraper] Result:", {
-            name: (_b = result.name) === null || _b === void 0 ? void 0 : _b.substring(0, 50),
+            name: (_c = result.name) === null || _c === void 0 ? void 0 : _c.substring(0, 50),
             price: result.price,
             images: result.images.length,
             supplier: result.supplierName,

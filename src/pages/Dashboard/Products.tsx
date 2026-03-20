@@ -149,6 +149,21 @@ const Products: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    if (!formData.name.trim()) {
+      alert("يرجى إدخال اسم المنتج");
+      return;
+    }
+    
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price <= 0) {
+      alert("يرجى إدخال سعر صحيح");
+      return;
+    }
+    
+    const stock = parseInt(formData.stock) || 0;
+    
     setLoading(true);
 
     try {
@@ -169,36 +184,51 @@ const Products: React.FC = () => {
         .filter((img) => img.startsWith("blob:"))
         .forEach((url) => URL.revokeObjectURL(url));
 
-      const productData = {
-        name: formData.name,
-        nameEn: formData.nameEn,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
-        category: formData.category,
+      const oldPrice = formData.oldPrice ? parseFloat(formData.oldPrice) : null;
+      const supplierPrice = formData.supplierPrice ? parseFloat(formData.supplierPrice) : null;
+
+      // Build product data without undefined values (Firestore doesn't accept undefined)
+      const productData: Record<string, unknown> = {
+        name: formData.name.trim(),
+        nameEn: formData.nameEn.trim(),
+        description: formData.description.trim(),
+        price: price,
+        category: formData.category || "",
         images: allImages.length
           ? allImages
           : ["https://via.placeholder.com/300"],
-        stock: parseInt(formData.stock),
+        stock: stock,
         featured: formData.featured,
-        supplierUrl: formData.supplierUrl || undefined,
-        supplierName: formData.supplierName || undefined,
-        supplierPrice: formData.supplierPrice ? parseFloat(formData.supplierPrice) : undefined,
         createdAt: editingProduct?.createdAt || new Date(),
         updatedAt: new Date(),
       };
 
+      // Only add optional fields if they have valid values
+      if (oldPrice && !isNaN(oldPrice)) {
+        productData.oldPrice = oldPrice;
+      }
+      if (formData.supplierUrl?.trim()) {
+        productData.supplierUrl = formData.supplierUrl.trim();
+      }
+      if (formData.supplierName?.trim()) {
+        productData.supplierName = formData.supplierName.trim();
+      }
+      if (supplierPrice && !isNaN(supplierPrice)) {
+        productData.supplierPrice = supplierPrice;
+      }
+
       if (editingProduct) {
         await updateProductInFirestore(editingProduct.id, productData);
       } else {
-        await addProductToFirestore(productData);
+        await addProductToFirestore(productData as Omit<Product, "id">);
       }
 
       setShowModal(false);
       setPendingFiles([]);
     } catch (error) {
       console.error("Error saving product:", error);
-      alert("حدث خطأ أثناء حفظ المنتج");
+      const errorMsg = error instanceof Error ? error.message : "خطأ غير معروف";
+      alert(`حدث خطأ أثناء حفظ المنتج: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

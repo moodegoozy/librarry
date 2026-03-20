@@ -141,11 +141,11 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Phone size={18} />
-                  <span>920000000</span>
+                  <span>0556122411</span>
                 </li>
                 <li>
                   <Mail size={18} />
-                  <span>info@jaboory.com</span>
+                  <span>jaboor1994@gmail.com</span>
                 </li>
               </ul>
             </div>

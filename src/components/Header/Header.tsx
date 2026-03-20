@@ -38,7 +38,7 @@ const Header: React.FC = () => {
           <div className="header-top-content">
             <div className="header-contact">
               <Phone size={14} />
-              <span>920000000</span>
+              <span>0556122411</span>
             </div>
             <div className="header-promo">
               🎉 شحن مجاني للطلبات فوق 200 ريال
