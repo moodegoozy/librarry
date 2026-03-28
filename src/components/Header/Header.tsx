@@ -38,7 +38,7 @@ const Header: React.FC = () => {
           <div className="header-top-content">
             <div className="header-contact">
               <Phone size={14} />
-              <span>920000000</span>
+              <span>0556122411</span>
             </div>
             <div className="header-promo">
               🎉 شحن مجاني للطلبات فوق 200 ريال
@@ -145,7 +145,7 @@ const Header: React.FC = () => {
         <div className="container">
           <ul className="nav-menu">
             <li className="nav-item">
-              <Link to="/" className="nav-link">
+              <Link to="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                 الرئيسية
               </Link>
             </li>
@@ -156,7 +156,7 @@ const Header: React.FC = () => {
               <div className="dropdown-menu">
                 {categories.length > 0 ? (
                   categories.map((cat) => (
-                    <Link key={cat.id} to={`/products?category=${cat.id}`}>
+                    <Link key={cat.id} to={`/products?category=${cat.id}`} onClick={() => setMobileMenuOpen(false)}>
                       {cat.name}
                     </Link>
                   ))
@@ -168,17 +168,17 @@ const Header: React.FC = () => {
               </div>
             </li>
             <li className="nav-item">
-              <Link to="/products?featured=true" className="nav-link">
+              <Link to="/products?featured=true" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                 العروض
               </Link>
             </li>
             <li className="nav-item">
-              <Link to="/products?new=true" className="nav-link">
+              <Link to="/products?new=true" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                 وصل حديثاً
               </Link>
             </li>
             <li className="nav-item">
-              <Link to="/contact" className="nav-link">
+              <Link to="/contact" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                 اتصل بنا
               </Link>
             </li>

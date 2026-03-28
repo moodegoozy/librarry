@@ -1,3 +1,31 @@
+// ==================== Product Variants ====================
+
+export interface ProductVariantOption {
+  name: string; // مثل "أحمر", "أزرق", "L", "XL"
+  value: string; // القيمة المخزنة
+  image?: string; // صورة هذا الخيار (للألوان مثلاً)
+  images?: string[]; // صور متعددة لهذا الخيار (من أمازون)
+}
+
+export interface ProductVariantType {
+  name: string; // "اللون", "المقاس", "السعة"
+  nameEn?: string; // "Color", "Size", "Capacity"
+  options: ProductVariantOption[];
+}
+
+export interface ProductVariant {
+  id: string;
+  sku?: string;
+  options: Record<string, string>; // { "اللون": "أحمر", "المقاس": "L" }
+  price?: number; // سعر خاص لهذا المتغير
+  oldPrice?: number;
+  stock: number;
+  images: string[]; // صور هذا المتغير
+  supplierVariantId?: string; // معرف المتغير عند المورد
+}
+
+// ==================== Main Product ====================
+
 export interface Product {
   id: string;
   name: string;
@@ -13,6 +41,12 @@ export interface Product {
   createdAt: Date;
   updatedAt: Date;
   specs?: Record<string, string>;
+  
+  // المتغيرات (الألوان، المقاسات، إلخ)
+  hasVariants?: boolean;
+  variantTypes?: ProductVariantType[]; // أنواع المتغيرات
+  variants?: ProductVariant[]; // قائمة المتغيرات
+  
   // حقول الدروبشيبينج
   supplierName?: string; // اسم المورد
   supplierPrice?: number; // سعر المورد (التكلفة)
@@ -30,6 +64,13 @@ export interface Product {
   cjCategoryId?: string; // تصنيف CJ
   cjSourcePrice?: number; // سعر CJ بالدولار
   cjImageUrl?: string; // رابط صورة CJ الأصلية
+  
+  // حقول أمازون
+  asin?: string;
+  brand?: string;
+  rating?: number;
+  reviewCount?: number;
+  features?: string[];
 }
 
 // أنواع CJ Dropshipping
@@ -159,6 +200,7 @@ export interface User {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedVariants?: Record<string, string>; // الخيارات المختارة (اللون، المقاس...)
 }
 
 export interface DashboardStats {

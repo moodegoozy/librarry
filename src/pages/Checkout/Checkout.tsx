@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   MapPin,
   CreditCard,
@@ -9,6 +9,7 @@ import {
   Check,
   Loader,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
@@ -16,8 +17,10 @@ import {
   getSettings,
   decrementStock,
 } from "../../services/firestore";
+import { createTamaraCheckout, authorizeTamaraOrder } from "../../services/tamara";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
+import PayPalCardForm from "../../components/PayPalCardForm/PayPalCardForm";
 import "./Checkout.css";
 
 interface ShippingSettings {
@@ -35,20 +38,24 @@ interface PaymentMethod {
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { cart, user, clearCart, getCartTotal } = useStore();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [tamaraProcessing, setTamaraProcessing] = useState(false);
+  const [paidWithTamara, setPaidWithTamara] = useState(false);
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
     freeShippingThreshold: 200,
     defaultShippingCost: 25,
     enableFreeShipping: true,
     estimatedDays: "3-5",
   });
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+  const [paymentMethods] = useState<PaymentMethod[]>([
     { id: "cash", name: "الدفع عند الاستلام", enabled: true },
     { id: "bank", name: "التحويل البنكي", enabled: true },
-    { id: "card", name: "بطاقة ائتمان", enabled: false },
+    { id: "card", name: "بطاقة ائتمان", enabled: true },
+    { id: "tamara", name: "تمارا - قسّمها على 3", enabled: true },
   ]);
 
   const [formData, setFormData] = useState({
@@ -64,6 +71,8 @@ const Checkout: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [cardProcessing, setCardProcessing] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
   // جلب الإعدادات من Firestore
   useEffect(() => {
@@ -74,9 +83,8 @@ const Checkout: React.FC = () => {
           if (settings.shipping) {
             setShippingSettings(settings.shipping);
           }
-          if (settings.payment?.methods) {
-            setPaymentMethods(settings.payment.methods);
-          }
+          // نتجاهل إعدادات الدفع من Firestore ونستخدم الافتراضية مع البطاقة مفعّلة
+          // لأن Firestore فيه بيانات قديمة
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -100,6 +108,73 @@ const Checkout: React.FC = () => {
       }));
     }
   }, [user]);
+
+  // التعامل مع العودة من Tamara
+  useEffect(() => {
+    const handleTamaraCallback = async () => {
+      const tamaraOrderId = searchParams.get("tamara_order_id");
+      const paymentStatus = searchParams.get("paymentStatus");
+      const pendingOrder = searchParams.get("order_ref");
+
+      if (tamaraOrderId && paymentStatus === "approved" && pendingOrder && user) {
+        setTamaraProcessing(true);
+        setStep(2);
+
+        try {
+          // استرجاع بيانات الطلب المحفوظة
+          const savedOrderData = localStorage.getItem(`tamara_order_${pendingOrder}`);
+          if (!savedOrderData) {
+            throw new Error("لم يتم العثور على بيانات الطلب");
+          }
+
+          const orderDataFromStorage = JSON.parse(savedOrderData);
+
+          // تأكيد الطلب مع Tamara
+          const authorizeResult = await authorizeTamaraOrder(tamaraOrderId);
+          console.log("Tamara authorize result:", authorizeResult);
+
+          // إنشاء الطلب في Firestore
+          const orderData = {
+            ...orderDataFromStorage,
+            paymentMethod: "tamara",
+            paymentStatus: "paid" as const,
+            tamaraOrderId: tamaraOrderId,
+            tamaraStatus: authorizeResult.status,
+            paidAt: new Date(),
+          };
+
+          await addOrder(orderData);
+
+          // تخفيض المخزون
+          const cartItems = orderDataFromStorage.items || [];
+          for (const item of cartItems) {
+            await decrementStock(item.productId, item.quantity);
+          }
+
+          // تنظيف البيانات المحفوظة
+          localStorage.removeItem(`tamara_order_${pendingOrder}`);
+
+          setOrderPlaced(true);
+          setPaidWithTamara(true);
+          clearCart();
+          setStep(3);
+
+          // إزالة معاملات URL
+          navigate("/checkout", { replace: true });
+        } catch (error) {
+          console.error("Error processing Tamara payment:", error);
+          alert("حدث خطأ أثناء معالجة الدفع بتمارا. يرجى التواصل معنا.");
+        } finally {
+          setTamaraProcessing(false);
+        }
+      } else if (paymentStatus === "declined" || paymentStatus === "failed") {
+        alert("تم رفض الدفع من تمارا. يرجى المحاولة مرة أخرى.");
+        navigate("/checkout", { replace: true });
+      }
+    };
+
+    handleTamaraCallback();
+  }, [searchParams, user, clearCart, navigate]);
 
   // التحقق من السلة
   useEffect(() => {
@@ -141,6 +216,128 @@ const Checkout: React.FC = () => {
   const handleNextStep = () => {
     if (step === 1 && validateStep1()) {
       setStep(2);
+    }
+  };
+
+  // معالجة الدفع بتمارا
+  const handleTamaraPayment = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    setTamaraProcessing(true);
+
+    try {
+      // التحقق من توفر المخزون
+      const { products } = useStore.getState();
+      const stockErrors: string[] = [];
+      for (const item of cart) {
+        const currentProduct = products.find((p) => p.id === item.product.id);
+        if (currentProduct && currentProduct.stock < item.quantity) {
+          stockErrors.push(
+            `${item.product.name}: متوفر ${currentProduct.stock} فقط (طلبت ${item.quantity})`
+          );
+        }
+      }
+      if (stockErrors.length > 0) {
+        alert(
+          "بعض المنتجات غير متوفرة بالكمية المطلوبة:\n" + stockErrors.join("\n")
+        );
+        setTamaraProcessing(false);
+        return;
+      }
+
+      const orderReference = generateOrderId();
+
+      // تجهيز بيانات الطلب للحفظ
+      const orderDataToSave = {
+        userId: user.id,
+        customer: formData.fullName,
+        email: user.email,
+        phone: formData.phone,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+          image: item.product.images[0] || "",
+        })),
+        total: total,
+        subtotal: subtotal,
+        shippingCost: shipping,
+        status: "pending" as const,
+        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ""}${formData.nationalAddress ? `، العنوان الوطني: ${formData.nationalAddress}` : ""}`,
+        address: {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          city: formData.city,
+          district: formData.district,
+          street: formData.street,
+          building: formData.building,
+          nationalAddress: formData.nationalAddress,
+        },
+        notes: formData.notes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // حفظ بيانات الطلب مؤقتاً
+      localStorage.setItem(`tamara_order_${orderReference}`, JSON.stringify(orderDataToSave));
+
+      // إنشاء عنوان العودة الحالي
+      const baseUrl = window.location.origin;
+
+      // تجهيز عناصر الطلب لتمارا
+      const tamaraItems = cart.map((item) => ({
+        reference_id: item.product.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.product.price,
+        image_url: item.product.images[0] || undefined,
+      }));
+
+      // تقسيم الاسم
+      const nameParts = formData.fullName.trim().split(" ");
+      const firstName = nameParts[0] || formData.fullName;
+      const lastName = nameParts.slice(1).join(" ") || firstName;
+
+      // إنشاء جلسة الدفع
+      const checkoutResult = await createTamaraCheckout({
+        orderReferenceId: orderReference,
+        totalAmount: total,
+        currency: "SAR",
+        items: tamaraItems,
+        consumer: {
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          phone: formData.phone.startsWith("+966")
+            ? formData.phone
+            : `+966${formData.phone.replace(/^0/, "")}`,
+        },
+        shippingAddress: {
+          first_name: firstName,
+          last_name: lastName,
+          line1: `${formData.district}، ${formData.street}`,
+          city: formData.city,
+          phone: formData.phone.startsWith("+966")
+            ? formData.phone
+            : `+966${formData.phone.replace(/^0/, "")}`,
+        },
+        shippingAmount: shipping,
+        successUrl: `${baseUrl}/checkout?paymentStatus=approved&order_ref=${orderReference}`,
+        failureUrl: `${baseUrl}/checkout?paymentStatus=failed&order_ref=${orderReference}`,
+        cancelUrl: `${baseUrl}/checkout?paymentStatus=cancelled&order_ref=${orderReference}`,
+        description: `طلب من جبوري للإلكترونيات #${orderReference}`,
+      });
+
+      // توجيه المستخدم لصفحة تمارا
+      window.location.href = checkoutResult.checkout_url;
+    } catch (error: any) {
+      console.error("Error creating Tamara checkout:", error);
+      alert(`حدث خطأ أثناء إنشاء جلسة الدفع: ${error.message || "خطأ غير معروف"}`);
+      setTamaraProcessing(false);
     }
   };
 
@@ -223,6 +420,112 @@ const Checkout: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // إنشاء معرف طلب فريد للدفع بالبطاقة
+  const generateOrderId = () => {
+    return `JAB-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // التعامل مع نجاح الدفع بالبطاقة
+  const handleCardPaymentSuccess = async (captureData: {
+    paypalOrderId: string;
+    captureId: string;
+    status: string;
+  }) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // التحقق من توفر المخزون
+      const { products } = useStore.getState();
+      const stockErrors: string[] = [];
+      for (const item of cart) {
+        const currentProduct = products.find((p) => p.id === item.product.id);
+        if (currentProduct && currentProduct.stock < item.quantity) {
+          stockErrors.push(
+            `${item.product.name}: متوفر ${currentProduct.stock} فقط (طلبت ${item.quantity})`,
+          );
+        }
+      }
+      if (stockErrors.length > 0) {
+        alert(
+          "بعض المنتجات غير متوفرة بالكمية المطلوبة:\n" +
+            stockErrors.join("\n"),
+        );
+        setLoading(false);
+        return;
+      }
+
+      const orderData = {
+        userId: user.id,
+        customer: formData.fullName,
+        email: user.email,
+        phone: formData.phone,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+          image: item.product.images[0] || "",
+        })),
+        total: total,
+        subtotal: subtotal,
+        shippingCost: shipping,
+        status: "pending" as const,
+        paymentMethod: "card",
+        paymentStatus: "paid" as const,
+        paypalOrderId: captureData.paypalOrderId,
+        paypalCaptureId: captureData.captureId,
+        paidAt: new Date(),
+        shippingAddress: `${formData.city}، ${formData.district}، ${formData.street}${formData.building ? `، مبنى ${formData.building}` : ""}${formData.nationalAddress ? `، العنوان الوطني: ${formData.nationalAddress}` : ""}`,
+        address: {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          city: formData.city,
+          district: formData.district,
+          street: formData.street,
+          building: formData.building,
+          nationalAddress: formData.nationalAddress,
+        },
+        notes: formData.notes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await addOrder(orderData);
+
+      // تخفيض المخزون
+      for (const item of cart) {
+        await decrementStock(item.product.id, item.quantity);
+      }
+
+      setOrderPlaced(true);
+      clearCart();
+      setStep(3);
+    } catch (error) {
+      console.error("Error creating order after card payment:", error);
+      alert("تم الدفع بنجاح ولكن حدث خطأ في حفظ الطلب. يرجى التواصل معنا.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // التعامل مع خطأ الدفع بالبطاقة
+  const handleCardPaymentError = (error: string) => {
+    console.error("Card payment error:", error);
+    alert(`خطأ في الدفع: ${error}`);
+  };
+
+  // تهيئة معرف الطلب للدفع بالبطاقة
+  useEffect(() => {
+    if (step === 2 && formData.paymentMethod === "card" && !pendingOrderId) {
+      setPendingOrderId(generateOrderId());
+    }
+  }, [step, formData.paymentMethod, pendingOrderId]);
 
   // صفحة تسجيل الدخول إذا لم يكن هناك مستخدم
   if (!user) {
@@ -476,6 +779,13 @@ const Checkout: React.FC = () => {
                                 {method.id === "card" && (
                                   <CreditCard size={24} />
                                 )}
+                                {method.id === "tamara" && (
+                                  <img 
+                                    src="https://cdn.tamara.co/assets/svg/tamara-logo-badge-ar.svg" 
+                                    alt="Tamara" 
+                                    className="tamara-badge"
+                                  />
+                                )}
                                 <div>
                                   <strong>{method.name}</strong>
                                   {method.id === "cash" && (
@@ -486,6 +796,9 @@ const Checkout: React.FC = () => {
                                   )}
                                   {method.id === "card" && (
                                     <span>Visa, Mastercard, Mada</span>
+                                  )}
+                                  {method.id === "tamara" && (
+                                    <span>اشترِ الآن وادفع لاحقاً على 3 دفعات بدون فوائد</span>
                                   )}
                                 </div>
                               </div>
@@ -511,6 +824,64 @@ const Checkout: React.FC = () => {
                           </p>
                         </div>
                       )}
+
+                      {formData.paymentMethod === "card" && pendingOrderId && (
+                        <PayPalCardForm
+                          amount={total}
+                          currency="SAR"
+                          orderId={pendingOrderId}
+                          onSuccess={handleCardPaymentSuccess}
+                          onError={handleCardPaymentError}
+                          onProcessing={setCardProcessing}
+                        />
+                      )}
+
+                      {formData.paymentMethod === "tamara" && (
+                        <div className="tamara-details">
+                          <div className="tamara-info">
+                            <img 
+                              src="https://cdn.tamara.co/assets/svg/tamara-logo-badge-ar.svg" 
+                              alt="Tamara" 
+                              className="tamara-logo"
+                            />
+                            <h4>قسّمها على 3 دفعات بدون فوائد</h4>
+                            <div className="tamara-installments">
+                              <div className="installment">
+                                <span className="label">اليوم</span>
+                                <span className="amount">{formatPrice(total / 3)}</span>
+                              </div>
+                              <div className="installment">
+                                <span className="label">بعد شهر</span>
+                                <span className="amount">{formatPrice(total / 3)}</span>
+                              </div>
+                              <div className="installment">
+                                <span className="label">بعد شهرين</span>
+                                <span className="amount">{formatPrice(total / 3)}</span>
+                              </div>
+                            </div>
+                            <p className="tamara-note">
+                              سيتم تحويلك لصفحة تمارا لإتمام الدفع
+                            </p>
+                          </div>
+                          <button
+                            className="btn btn-tamara"
+                            onClick={handleTamaraPayment}
+                            disabled={tamaraProcessing}
+                          >
+                            {tamaraProcessing ? (
+                              <>
+                                <Loader className="spinner" size={18} />
+                                جاري التحويل لتمارا...
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={18} />
+                                الدفع عبر تمارا - {formatPrice(total)}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -518,17 +889,19 @@ const Checkout: React.FC = () => {
                     <button
                       className="btn btn-outline"
                       onClick={() => setStep(1)}
+                      disabled={cardProcessing || tamaraProcessing}
                     >
                       <ArrowRight size={18} />
                       السابق
                     </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleSubmitOrder}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
+                    {formData.paymentMethod !== "card" && formData.paymentMethod !== "tamara" && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleSubmitOrder}
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
                           <Loader className="spinner" size={18} />
                           جاري إرسال الطلب...
                         </>
@@ -536,6 +909,7 @@ const Checkout: React.FC = () => {
                         `تأكيد الطلب - ${formatPrice(total)}`
                       )}
                     </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -598,7 +972,16 @@ const Checkout: React.FC = () => {
                 <Check size={60} />
               </div>
               <h1>تم استلام طلبك بنجاح!</h1>
-              <p>شكراً لك على طلبك. سنتواصل معك قريباً لتأكيد الطلب.</p>
+              {paidWithTamara && (
+                <div className="payment-success-badge">
+                  <img 
+                    src="https://cdn.tamara.co/assets/svg/tamara-logo-badge-ar.svg" 
+                    alt="Tamara" 
+                  />
+                  <span>تم الدفع بنجاح عبر تمارا ✓</span>
+                </div>
+              )}
+              <p>شكراً لك على طلبك. {paidWithTamara ? 'تم استلام الدفع وسيتم شحن طلبك قريباً.' : 'سنتواصل معك قريباً لتأكيد الطلب.'}</p>
 
               <div className="order-actions">
                 <Link to="/account" className="btn btn-primary">

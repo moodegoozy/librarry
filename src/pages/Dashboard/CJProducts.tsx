@@ -70,8 +70,14 @@ const getProductImage = (product: Record<string, unknown>): string => {
 const resolveCJImage = (url: unknown): string => {
   const imgUrl = extractFirstImage(url);
   if (!imgUrl) return "";
-  if (imgUrl.startsWith("//")) return "https:" + imgUrl;
-  return imgUrl;
+  let finalUrl = imgUrl;
+  if (finalUrl.startsWith("//")) finalUrl = "https:" + finalUrl;
+  
+  // Always use proxy for CJ images
+  if (finalUrl.includes("cjdropshipping.com") || finalUrl.includes("alicdn.com")) {
+    return `https://us-central1-jabouri-digital-library.cloudfunctions.net/cjImageProxy?url=${encodeURIComponent(finalUrl)}`;
+  }
+  return finalUrl;
 };
 
 const CJProducts: React.FC = () => {
@@ -130,22 +136,6 @@ const CJProducts: React.FC = () => {
 
       if (result.result && result.data) {
         const list = result.data.list || [];
-        // Debug: log first product keys and image-related fields
-        if (list.length > 0) {
-          const sample = list[0] as any;
-          console.log("CJ Product ALL KEYS:", Object.keys(sample));
-          const imageFields = Object.entries(sample).filter(
-            ([k, v]) =>
-              k.toLowerCase().includes("image") ||
-              k.toLowerCase().includes("img") ||
-              k.toLowerCase().includes("photo") ||
-              k.toLowerCase().includes("pic") ||
-              (typeof v === "string" &&
-                (v as string).match(/\.(jpg|jpeg|png|webp)/i)),
-          );
-          console.log("CJ Image fields:", JSON.stringify(imageFields));
-          console.log("CJ productImage value:", sample.productImage);
-        }
         // Normalize image field
         const normalized = list.map((p: any) => ({
           ...p,
@@ -367,37 +357,12 @@ const CJProducts: React.FC = () => {
 
               return (
                 <div key={product.pid} className="cj-product-card">
-                  {(() => {
-                    const imgSrc = resolveCJImage(product.productImage);
-                    return imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={product.productNameEn}
-                        className="product-image"
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src =
-                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f0f0f0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
-                        }}
-                      />
-                    ) : (
-                      <div
-                        className="product-image"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "#f0f0f0",
-                          color: "#999",
-                          fontSize: "12px",
-                        }}
-                      >
-                        لا توجد صورة
-                      </div>
-                    );
-                  })()}
+                  <div 
+                    className="product-image-bg"
+                    style={{
+                      backgroundImage: `url(${resolveCJImage(product.productImage)})`,
+                    }}
+                  />
                   <div className="product-info">
                     <div className="product-name">{product.productNameEn}</div>
                     <div className="product-sku">SKU: {product.productSku}</div>
@@ -486,8 +451,6 @@ const CJProducts: React.FC = () => {
                   src={resolveCJImage(productDetail.productImage)}
                   alt={productDetail.productNameEn}
                   className="detail-image"
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
                 />
 
                 <div className="detail-info">

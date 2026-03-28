@@ -386,6 +386,97 @@
   background: var(--light);
 }
 
+/* Product Source Badge */
+.product-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.source-link:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* Supplier Info Section in Modal */
+.supplier-info-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border);
+}
+
+.supplier-info-card {
+  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+  border: 1px solid #fde047;
+  border-radius: 10px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.supplier-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.supplier-label {
+  font-weight: 600;
+  color: #854d0e;
+  min-width: 80px;
+  font-size: 13px;
+}
+
+.supplier-value {
+  color: #713f12;
+  font-size: 14px;
+}
+
+.supplier-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 4px 10px;
+  background: white;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.supplier-link:hover {
+  background: var(--primary);
+  color: white;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .filters-bar {
@@ -409,4 +500,197 @@
     flex-direction: column;
     gap: 15px;
   }
+}
+
+/* Variants Section */
+.variants-section {
+  margin-top: 20px;
+}
+
+.variants-section .form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.variants-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.variant-type {
+  margin-bottom: 16px;
+}
+
+.variant-type:last-child {
+  margin-bottom: 0;
+}
+
+.variant-type-name {
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.variant-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.variant-option:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+}
+
+.variant-option-image {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.variant-option-name {
+  color: var(--dark);
+}
+
+.variants-count {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--gray);
+  text-align: center;
+}
+
+/* قسم المواصفات */
+.specs-section {
+  margin-top: 20px;
+}
+
+.specs-section .form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.specs-editor {
+  background: var(--light);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.spec-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.spec-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.spec-key {
+  flex: 0 0 40%;
+}
+
+.spec-value {
+  flex: 1;
+}
+
+.btn-remove-spec {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-spec:hover {
+  background: #fecaca;
+}
+
+.btn-add-spec {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: white;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-spec:hover {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+/* Description Header with Copy Button */
+.description-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.description-header .form-label {
+  margin-bottom: 0;
+}
+
+.btn-copy-desc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-copy-desc:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }

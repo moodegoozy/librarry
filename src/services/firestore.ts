@@ -170,6 +170,10 @@ export interface FirestoreOrder {
   shippingCost?: number;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   paymentMethod: string;
+  paymentStatus?: "pending" | "paid";
+  paypalOrderId?: string;
+  paypalCaptureId?: string;
+  paidAt?: Date;
   shippingAddress: string;
   address?: {
     fullName: string;

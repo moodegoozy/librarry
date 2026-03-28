@@ -5,9 +5,9 @@ import type { Product, CartItem, User, Category } from "../types";
 interface StoreState {
   // Cart (يبقى محلي لأنه خاص بالمستخدم الحالي)
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product & { selectedVariants?: Record<string, string> }, quantity?: number) => void;
+  removeFromCart: (productId: string, selectedVariants?: Record<string, string>) => void;
+  updateQuantity: (productId: string, quantity: number, selectedVariants?: Record<string, string>) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -45,33 +45,70 @@ export const useStore = create<StoreState>()(
       cart: [],
       addToCart: (product, quantity = 1) => {
         const cart = get().cart;
-        const existing = cart.find((item) => item.product.id === product.id);
+        const { selectedVariants, ...productData } = product;
+        
+        // دالة للمقارنة بين المتغيرات المختارة
+        const variantsMatch = (v1?: Record<string, string>, v2?: Record<string, string>) => {
+          if (!v1 && !v2) return true;
+          if (!v1 || !v2) return false;
+          const keys1 = Object.keys(v1);
+          const keys2 = Object.keys(v2);
+          if (keys1.length !== keys2.length) return false;
+          return keys1.every(key => v1[key] === v2[key]);
+        };
+        
+        const existing = cart.find(
+          (item) => item.product.id === productData.id && variantsMatch(item.selectedVariants, selectedVariants)
+        );
 
         if (existing) {
           set({
             cart: cart.map((item) =>
-              item.product.id === product.id
+              item.product.id === productData.id && variantsMatch(item.selectedVariants, selectedVariants)
                 ? { ...item, quantity: item.quantity + quantity }
                 : item,
             ),
           });
         } else {
-          set({ cart: [...cart, { product, quantity }] });
+          set({ cart: [...cart, { product: productData as Product, quantity, selectedVariants }] });
         }
       },
-      removeFromCart: (productId) => {
+      removeFromCart: (productId, selectedVariants) => {
+        const variantsMatch = (v1?: Record<string, string>, v2?: Record<string, string>) => {
+          if (!v1 && !v2) return true;
+          if (!v1 || !v2) return false;
+          const keys1 = Object.keys(v1);
+          const keys2 = Object.keys(v2);
+          if (keys1.length !== keys2.length) return false;
+          return keys1.every(key => v1[key] === v2[key]);
+        };
+        
         set({
-          cart: get().cart.filter((item) => item.product.id !== productId),
+          cart: get().cart.filter(
+            (item) => !(item.product.id === productId && variantsMatch(item.selectedVariants, selectedVariants))
+          ),
         });
       },
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (productId, quantity, selectedVariants) => {
         if (quantity <= 0) {
-          get().removeFromCart(productId);
+          get().removeFromCart(productId, selectedVariants);
           return;
         }
+        
+        const variantsMatch = (v1?: Record<string, string>, v2?: Record<string, string>) => {
+          if (!v1 && !v2) return true;
+          if (!v1 || !v2) return false;
+          const keys1 = Object.keys(v1);
+          const keys2 = Object.keys(v2);
+          if (keys1.length !== keys2.length) return false;
+          return keys1.every(key => v1[key] === v2[key]);
+        };
+        
         set({
           cart: get().cart.map((item) =>
-            item.product.id === productId ? { ...item, quantity } : item,
+            item.product.id === productId && variantsMatch(item.selectedVariants, selectedVariants)
+              ? { ...item, quantity }
+              : item,
           ),
         });
       },

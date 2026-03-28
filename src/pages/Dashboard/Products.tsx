@@ -12,6 +12,9 @@ import {
   X,
   Loader,
   Link2,
+  ExternalLink,
+  Palette,
+  Tag,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
@@ -20,8 +23,8 @@ import {
   deleteProduct as deleteProductFromFirestore,
 } from "../../services/firestore";
 import { uploadImages } from "../../services/storage";
-import { scrapeProduct } from "../../services/productScraper";
-import type { Product } from "../../types";
+import { scrapeProductByUrl, convertToProductVariants } from "../../services/scraperService";
+import type { Product, ProductVariantType, ProductVariant } from "../../types";
 import "./Products.css";
 
 const Products: React.FC = () => {
@@ -42,6 +45,19 @@ const Products: React.FC = () => {
     stock: "",
     featured: false,
     images: [] as string[],
+    supplierUrl: "",
+    supplierName: "",
+    supplierPrice: "",
+    // المتغيرات
+    hasVariants: false,
+    variantTypes: [] as ProductVariantType[],
+    variants: [] as ProductVariant[],
+    // حقول إضافية من أمازون
+    asin: "",
+    brand: "",
+    features: [] as string[],
+    // المواصفات
+    specs: {} as Record<string, string>,
   });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +100,19 @@ const Products: React.FC = () => {
         stock: product.stock.toString(),
         featured: product.featured,
         images: product.images,
+        supplierUrl: product.supplierUrl || "",
+        supplierName: product.supplierName || "",
+        supplierPrice: product.supplierPrice?.toString() || "",
+        // المتغيرات
+        hasVariants: product.hasVariants || false,
+        variantTypes: product.variantTypes || [],
+        variants: product.variants || [],
+        // حقول أمازون
+        asin: product.asin || "",
+        brand: product.brand || "",
+        features: product.features || [],
+        // المواصفات
+        specs: product.specs || {},
       });
     } else {
       setEditingProduct(null);
@@ -98,6 +127,16 @@ const Products: React.FC = () => {
         stock: "",
         featured: false,
         images: [],
+        supplierUrl: "",
+        supplierName: "",
+        supplierPrice: "",
+        hasVariants: false,
+        variantTypes: [],
+        variants: [],
+        asin: "",
+        brand: "",
+        features: [],
+        specs: {},
       });
     }
     setShowModal(true);
@@ -139,6 +178,21 @@ const Products: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    if (!formData.name.trim()) {
+      alert("يرجى إدخال اسم المنتج");
+      return;
+    }
+    
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price <= 0) {
+      alert("يرجى إدخال سعر صحيح");
+      return;
+    }
+    
+    const stock = parseInt(formData.stock) || 0;
+    
     setLoading(true);
 
     try {
@@ -159,33 +213,75 @@ const Products: React.FC = () => {
         .filter((img) => img.startsWith("blob:"))
         .forEach((url) => URL.revokeObjectURL(url));
 
-      const productData = {
-        name: formData.name,
-        nameEn: formData.nameEn,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
-        category: formData.category,
+      const oldPrice = formData.oldPrice ? parseFloat(formData.oldPrice) : null;
+      const supplierPrice = formData.supplierPrice ? parseFloat(formData.supplierPrice) : null;
+
+      // Build product data without undefined values (Firestore doesn't accept undefined)
+      const productData: Record<string, unknown> = {
+        name: formData.name.trim(),
+        nameEn: formData.nameEn.trim(),
+        description: formData.description.trim(),
+        price: price,
+        category: formData.category || "",
         images: allImages.length
           ? allImages
           : ["https://via.placeholder.com/300"],
-        stock: parseInt(formData.stock),
+        stock: stock,
         featured: formData.featured,
         createdAt: editingProduct?.createdAt || new Date(),
         updatedAt: new Date(),
       };
 
+      // Only add optional fields if they have valid values
+      if (oldPrice && !isNaN(oldPrice)) {
+        productData.oldPrice = oldPrice;
+      }
+      if (formData.supplierUrl?.trim()) {
+        productData.supplierUrl = formData.supplierUrl.trim();
+      }
+      if (formData.supplierName?.trim()) {
+        productData.supplierName = formData.supplierName.trim();
+      }
+      if (supplierPrice && !isNaN(supplierPrice)) {
+        productData.supplierPrice = supplierPrice;
+      }
+      
+      // المتغيرات
+      if (formData.hasVariants && formData.variantTypes.length > 0) {
+        productData.hasVariants = true;
+        productData.variantTypes = formData.variantTypes;
+        if (formData.variants.length > 0) {
+          productData.variants = formData.variants;
+        }
+      }
+      
+      // حقول أمازون
+      if (formData.asin) {
+        productData.asin = formData.asin;
+      }
+      if (formData.brand) {
+        productData.brand = formData.brand;
+      }
+      if (formData.features && formData.features.length > 0) {
+        productData.features = formData.features;
+      }
+      // المواصفات
+      if (formData.specs && Object.keys(formData.specs).length > 0) {
+        productData.specs = formData.specs;
+      }
+
       if (editingProduct) {
         await updateProductInFirestore(editingProduct.id, productData);
       } else {
-        await addProductToFirestore(productData);
+        await addProductToFirestore(productData as Omit<Product, "id">);
       }
 
       setShowModal(false);
       setPendingFiles([]);
     } catch (error) {
       console.error("Error saving product:", error);
-      alert("حدث خطأ أثناء حفظ المنتج");
+      const errorMsg = error instanceof Error ? error.message : "خطأ غير معروف";
+      alert(`حدث خطأ أثناء حفظ المنتج: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -313,7 +409,11 @@ const Products: React.FC = () => {
     if (!productUrl.trim()) return;
     setUrlLoading(true);
     try {
-      const scraped = await scrapeProduct(productUrl.trim());
+      const scraped = await scrapeProductByUrl(productUrl.trim());
+      
+      // تحويل المتغيرات
+      const { variantTypes, variants } = convertToProductVariants(scraped);
+      
       // تعبئة نموذج المنتج بالبيانات المجلوبة
       setFormData({
         name: scraped.name || "",
@@ -325,6 +425,18 @@ const Products: React.FC = () => {
         stock: "10",
         featured: false,
         images: scraped.images || [],
+        supplierUrl: scraped.supplierUrl || "",
+        supplierName: scraped.supplierName || "",
+        supplierPrice: scraped.supplierPrice ? scraped.supplierPrice.toString() : "",
+        // المتغيرات
+        hasVariants: scraped.hasVariants || false,
+        variantTypes: variantTypes || [],
+        variants: variants || [],
+        // حقول إضافية
+        asin: scraped.asin || "",
+        brand: scraped.brand || "",
+        features: scraped.features || [],
+        specs: scraped.specs || {},
       });
       setEditingProduct(null);
       setPendingFiles([]);
@@ -347,7 +459,9 @@ const Products: React.FC = () => {
     if (!productUrl.trim()) return;
     setUrlLoading(true);
     try {
-      const scraped = await scrapeProduct(productUrl.trim());
+      const scraped = await scrapeProductByUrl(productUrl.trim());
+      const { variantTypes, variants } = convertToProductVariants(scraped);
+      
       if (!scraped.name || !scraped.price) {
         // إذا البيانات ناقصة، افتح النموذج للمراجعة
         setFormData({
@@ -360,6 +474,16 @@ const Products: React.FC = () => {
           stock: "10",
           featured: false,
           images: scraped.images || [],
+          supplierUrl: scraped.supplierUrl || "",
+          supplierName: scraped.supplierName || "",
+          supplierPrice: scraped.supplierPrice ? scraped.supplierPrice.toString() : "",
+          hasVariants: scraped.hasVariants || false,
+          variantTypes: variantTypes || [],
+          variants: variants || [],
+          asin: scraped.asin || "",
+          brand: scraped.brand || "",
+          features: scraped.features || [],
+          specs: scraped.specs || {},
         });
         setEditingProduct(null);
         setPendingFiles([]);
@@ -368,12 +492,13 @@ const Products: React.FC = () => {
         alert("البيانات غير مكتملة. يرجى مراجعة وإكمال المعلومات.");
         return;
       }
-      await addProductToFirestore({
+      
+      // بناء بيانات المنتج
+      const productData: Record<string, unknown> = {
         name: scraped.name,
         nameEn: scraped.nameEn || "",
         description: scraped.description || "",
         price: scraped.price,
-        oldPrice: scraped.oldPrice,
         category: "",
         images:
           scraped.images.length > 0
@@ -381,12 +506,30 @@ const Products: React.FC = () => {
             : ["https://via.placeholder.com/300"],
         stock: 10,
         featured: false,
-        supplierUrl: scraped.supplierUrl,
-        supplierName: scraped.supplierName,
-        supplierPrice: scraped.supplierPrice,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+      
+      // إضافة الحقول الاختيارية
+      if (scraped.oldPrice) productData.oldPrice = scraped.oldPrice;
+      if (scraped.supplierUrl) productData.supplierUrl = scraped.supplierUrl;
+      if (scraped.supplierName) productData.supplierName = scraped.supplierName;
+      if (scraped.supplierPrice) productData.supplierPrice = scraped.supplierPrice;
+      if (scraped.asin) productData.asin = scraped.asin;
+      if (scraped.brand) productData.brand = scraped.brand;
+      if (scraped.features && scraped.features.length > 0) productData.features = scraped.features;
+      if (scraped.specs && Object.keys(scraped.specs).length > 0) productData.specs = scraped.specs;
+      
+      // إضافة المتغيرات
+      if (scraped.hasVariants && variantTypes && variantTypes.length > 0) {
+        productData.hasVariants = true;
+        productData.variantTypes = variantTypes;
+        if (variants && variants.length > 0) {
+          productData.variants = variants;
+        }
+      }
+      
+      await addProductToFirestore(productData as Omit<Product, "id">);
       alert("تمت إضافة المنتج بنجاح!");
       setShowUrlModal(false);
       setProductUrl("");
@@ -549,6 +692,24 @@ const Products: React.FC = () => {
                       <div>
                         <span className="product-name">{product.name}</span>
                         <span className="product-id">#{product.id}</span>
+                        {product.supplierName && (
+                          <div className="product-source">
+                            <span className="source-badge">
+                              {product.supplierName}
+                            </span>
+                            {product.supplierUrl && (
+                              <a
+                                href={product.supplierUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="source-link"
+                                title="فتح الرابط الأصلي"
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -687,13 +848,27 @@ const Products: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">الوصف</label>
+                  <div className="description-header">
+                    <label className="form-label">الوصف</label>
+                    {formData.supplierUrl && (
+                      <a
+                        href={formData.supplierUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-copy-desc"
+                        title="افتح صفحة المنتج لنسخ الوصف"
+                      >
+                        📋 نسخ الوصف من المصدر
+                      </a>
+                    )}
+                  </div>
                   <textarea
                     className="form-textarea"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
+                    placeholder="اكتب وصف المنتج هنا أو انسخه من صفحة المنتج الأصلية..."
                   />
                 </div>
 
@@ -813,6 +988,145 @@ const Products: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* قسم المتغيرات (الألوان والمقاسات) */}
+                {formData.hasVariants && formData.variantTypes.length > 0 && (
+                  <div className="variants-section">
+                    <label className="form-label">
+                      <Palette size={16} />
+                      المتغيرات المتاحة ({formData.variantTypes.length} نوع)
+                    </label>
+                    <div className="variants-card">
+                      {formData.variantTypes.map((varType, idx) => (
+                        <div key={idx} className="variant-type">
+                          <div className="variant-type-name">
+                            {varType.name} ({varType.options.length} خيار)
+                          </div>
+                          <div className="variant-options">
+                            {varType.options.map((opt, optIdx) => (
+                              <div key={optIdx} className="variant-option">
+                                {opt.image && (
+                                  <img 
+                                    src={opt.image} 
+                                    alt={opt.name}
+                                    className="variant-option-image"
+                                  />
+                                )}
+                                <span className="variant-option-name">{opt.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {formData.variants.length > 0 && (
+                        <div className="variants-count">
+                          إجمالي المتغيرات: {formData.variants.length} متغير
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* قسم المواصفات التفصيلية */}
+                <div className="specs-section">
+                  <label className="form-label">
+                    <Tag size={16} />
+                    المواصفات التفصيلية
+                  </label>
+                  <div className="specs-editor">
+                    {Object.entries(formData.specs).map(([key, value], idx) => (
+                      <div key={idx} className="spec-row">
+                        <input
+                          type="text"
+                          className="form-control spec-key"
+                          placeholder="المواصفة (مثل: الوزن)"
+                          value={key}
+                          onChange={(e) => {
+                            const newSpecs = { ...formData.specs };
+                            const oldValue = newSpecs[key];
+                            delete newSpecs[key];
+                            if (e.target.value) {
+                              newSpecs[e.target.value] = oldValue;
+                            }
+                            setFormData({ ...formData, specs: newSpecs });
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="form-control spec-value"
+                          placeholder="القيمة (مثل: 500 جرام)"
+                          value={value}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              specs: { ...formData.specs, [key]: e.target.value }
+                            });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-remove-spec"
+                          onClick={() => {
+                            const newSpecs = { ...formData.specs };
+                            delete newSpecs[key];
+                            setFormData({ ...formData, specs: newSpecs });
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn-add-spec"
+                      onClick={() => {
+                        const newKey = `مواصفة_${Object.keys(formData.specs).length + 1}`;
+                        setFormData({
+                          ...formData,
+                          specs: { ...formData.specs, [newKey]: "" }
+                        });
+                      }}
+                    >
+                      <Plus size={16} />
+                      إضافة مواصفة
+                    </button>
+                  </div>
+                </div>
+
+                {/* قسم معلومات المصدر */}
+                {(formData.supplierUrl || formData.supplierName) && (
+                  <div className="supplier-info-section">
+                    <label className="form-label">معلومات المصدر</label>
+                    <div className="supplier-info-card">
+                      {formData.supplierName && (
+                        <div className="supplier-row">
+                          <span className="supplier-label">الموقع:</span>
+                          <span className="supplier-value">{formData.supplierName}</span>
+                        </div>
+                      )}
+                      {formData.supplierPrice && (
+                        <div className="supplier-row">
+                          <span className="supplier-label">سعر المورد:</span>
+                          <span className="supplier-value">{formData.supplierPrice}</span>
+                        </div>
+                      )}
+                      {formData.supplierUrl && (
+                        <div className="supplier-row">
+                          <span className="supplier-label">الرابط:</span>
+                          <a
+                            href={formData.supplierUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="supplier-link"
+                          >
+                            <ExternalLink size={14} />
+                            فتح الرابط الأصلي
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">

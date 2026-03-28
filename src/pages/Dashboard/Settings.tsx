@@ -7,9 +7,11 @@ import {
   Shield,
   Save,
   Loader,
+  Clock,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { getSettings, updateSettings } from "../../services/firestore";
+import { saveTamaraSettings, testTamaraConnection } from "../../services/tamara";
 import {
   updatePassword,
   EmailAuthProvider,
@@ -26,8 +28,8 @@ const Settings: React.FC = () => {
 
   const [storeSettings, setStoreSettings] = useState({
     storeName: "جبوري للإلكترونيات",
-    storeEmail: "info@jaboory.com",
-    storePhone: "920000000",
+    storeEmail: "jaboor1994@gmail.com",
+    storePhone: "0556122411",
     storeAddress: "المملكة العربية السعودية",
     currency: "SAR",
     language: "ar",
@@ -51,8 +53,15 @@ const Settings: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState([
     { id: "cash", name: "الدفع عند الاستلام", enabled: true },
     { id: "bank", name: "التحويل البنكي", enabled: true },
-    { id: "card", name: "بطاقة ائتمان (قريباً)", enabled: false },
+    { id: "card", name: "بطاقة ائتمان (PayPal)", enabled: true },
+    { id: "tamara", name: "تمارا - قسّمها على 3", enabled: true },
   ]);
+
+  const [tamaraSettings, setTamaraSettings] = useState({
+    apiToken: "",
+    isConnected: false,
+  });
+  const [tamaraLoading, setTamaraLoading] = useState(false);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -107,6 +116,45 @@ const Settings: React.FC = () => {
         method.id === id ? { ...method, enabled: !method.enabled } : method,
       ),
     );
+  };
+
+  // اختبار وحفظ إعدادات تمارا
+  const handleTestTamara = async () => {
+    if (!tamaraSettings.apiToken) {
+      alert("يرجى إدخال مفتاح API");
+      return;
+    }
+    setTamaraLoading(true);
+    try {
+      const result = await testTamaraConnection(tamaraSettings.apiToken);
+      if (result.success) {
+        setTamaraSettings((prev) => ({ ...prev, isConnected: true }));
+        alert("تم الاتصال بتمارا بنجاح!");
+      }
+    } catch (error: any) {
+      console.error("Tamara test error:", error);
+      alert(`فشل الاتصال: ${error.message || "خطأ غير معروف"}`);
+      setTamaraSettings((prev) => ({ ...prev, isConnected: false }));
+    } finally {
+      setTamaraLoading(false);
+    }
+  };
+
+  const handleSaveTamara = async () => {
+    if (!tamaraSettings.apiToken) {
+      alert("يرجى إدخال مفتاح API");
+      return;
+    }
+    setTamaraLoading(true);
+    try {
+      await saveTamaraSettings(tamaraSettings.apiToken);
+      alert("تم حفظ إعدادات تمارا بنجاح");
+    } catch (error: any) {
+      console.error("Tamara save error:", error);
+      alert(`فشل الحفظ: ${error.message || "خطأ غير معروف"}`);
+    } finally {
+      setTamaraLoading(false);
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -473,6 +521,7 @@ const Settings: React.FC = () => {
                             "يدفع العميل عند استلام الطلب"}
                           {method.id === "bank" && "تحويل مباشر للحساب البنكي"}
                           {method.id === "card" && "Visa, Mastercard, Mada"}
+                          {method.id === "tamara" && "اشترِ الآن وادفع لاحقاً"}
                         </span>
                       </div>
                       <label className="toggle">
@@ -486,6 +535,56 @@ const Settings: React.FC = () => {
                       </label>
                     </div>
                   ))}
+                </div>
+
+                {/* Tamara Settings */}
+                <div className="tamara-settings">
+                  <h3>
+                    <Clock size={18} />
+                    إعدادات تمارا
+                  </h3>
+                  <div className="form-group">
+                    <label>مفتاح API</label>
+                    <input
+                      type="password"
+                      value={tamaraSettings.apiToken}
+                      onChange={(e) =>
+                        setTamaraSettings((prev) => ({
+                          ...prev,
+                          apiToken: e.target.value,
+                          isConnected: false,
+                        }))
+                      }
+                      placeholder="أدخل مفتاح API من تمارا"
+                    />
+                  </div>
+                  <div className="tamara-actions">
+                    <button
+                      className="btn btn-outline"
+                      onClick={handleTestTamara}
+                      disabled={tamaraLoading}
+                    >
+                      {tamaraLoading ? (
+                        <Loader className="spinner" size={16} />
+                      ) : (
+                        "اختبار الاتصال"
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleSaveTamara}
+                      disabled={tamaraLoading}
+                    >
+                      {tamaraLoading ? (
+                        <Loader className="spinner" size={16} />
+                      ) : (
+                        "حفظ الإعدادات"
+                      )}
+                    </button>
+                  </div>
+                  {tamaraSettings.isConnected && (
+                    <p className="success-text">✓ متصل بتمارا</p>
+                  )}
                 </div>
               </div>
             </div>

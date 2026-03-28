@@ -11,6 +11,7 @@ import {
   Inbox,
   Loader,
   Trash2,
+  DollarSign,
 } from "lucide-react";
 import {
   subscribeToOrders,
@@ -245,6 +246,7 @@ const Orders: React.FC = () => {
                     <th>المنتجات</th>
                     <th>الإجمالي</th>
                     <th>طريقة الدفع</th>
+                    <th>الدفع</th>
                     <th>التاريخ</th>
                     <th>الحالة</th>
                     <th>الإجراءات</th>
@@ -309,6 +311,41 @@ const Orders: React.FC = () => {
                             : order.paymentMethod === "bank"
                               ? "تحويل بنكي"
                               : "بطاقة ائتمان"}
+                        </td>
+                        <td>
+                          {order.paymentStatus === "paid" ? (
+                            <span
+                              className="status-badge"
+                              style={{
+                                background: "#dcfce7",
+                                color: "#22c55e",
+                              }}
+                            >
+                              <DollarSign size={14} />
+                              مدفوع
+                            </span>
+                          ) : order.paymentMethod === "cash" ? (
+                            <span
+                              className="status-badge"
+                              style={{
+                                background: "#f1f5f9",
+                                color: "#64748b",
+                              }}
+                            >
+                              عند الاستلام
+                            </span>
+                          ) : (
+                            <span
+                              className="status-badge"
+                              style={{
+                                background: "#fef3c7",
+                                color: "#f59e0b",
+                              }}
+                            >
+                              <Clock size={14} />
+                              معلق
+                            </span>
+                          )}
                         </td>
                         <td>{formatDate(order.createdAt)}</td>
                         <td>
@@ -526,6 +563,18 @@ const Orders: React.FC = () => {
                           : "بطاقة ائتمان"}
                     </strong>
                   </div>
+                  <div className="detail-row">
+                    <span>حالة الدفع:</span>
+                    <strong style={{ color: selectedOrder.paymentStatus === "paid" ? "#22c55e" : "#f59e0b" }}>
+                      {selectedOrder.paymentStatus === "paid" ? "✅ مدفوع" : selectedOrder.paymentMethod === "cash" ? "عند الاستلام" : "⏳ معلق"}
+                    </strong>
+                  </div>
+                  {selectedOrder.paypalOrderId && (
+                    <div className="detail-row">
+                      <span>رقم PayPal:</span>
+                      <strong style={{ fontSize: "12px", fontFamily: "monospace" }}>{selectedOrder.paypalOrderId}</strong>
+                    </div>
+                  )}
                   <div className="detail-row">
                     <span>التاريخ:</span>
                     <strong>{formatDate(selectedOrder.createdAt)}</strong>

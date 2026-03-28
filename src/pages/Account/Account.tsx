@@ -432,16 +432,30 @@ const Account: React.FC = () => {
                                   {formatDate(order.createdAt)}
                                 </span>
                               </div>
-                              <span
-                                className="status-badge"
-                                style={{
-                                  background: status.bg,
-                                  color: status.color,
-                                }}
-                              >
-                                <StatusIcon size={14} />
-                                {status.label}
-                              </span>
+                              <div className="order-badges">
+                                {order.paymentStatus === "paid" && (
+                                  <span
+                                    className="status-badge"
+                                    style={{
+                                      background: "#dcfce7",
+                                      color: "#22c55e",
+                                      marginLeft: "8px",
+                                    }}
+                                  >
+                                    💰 مدفوع
+                                  </span>
+                                )}
+                                <span
+                                  className="status-badge"
+                                  style={{
+                                    background: status.bg,
+                                    color: status.color,
+                                  }}
+                                >
+                                  <StatusIcon size={14} />
+                                  {status.label}
+                                </span>
+                              </div>
                             </div>
                             <div className="order-items">
                               {order.items.map((item, idx) => (

@@ -5,6 +5,23 @@
  * and generic Open Graph / JSON-LD sites.
  */
 
+// Variant option for scraped products
+export interface ScrapedVariantOption {
+  name: string;       // اسم الخيار للعرض
+  value: string;      // "أحمر", "أزرق"
+  image?: string;     // صورة swatch صغيرة للون
+  images?: string[];  // صور المنتج بهذا اللون (للألوان)
+  asin?: string;      // معرف أمازون لهذا المتغير
+  selected?: boolean; // هل هذا الخيار المختار حالياً
+}
+
+// Variant type for scraped products
+export interface ScrapedVariantType {
+  name: string;       // "اللون", "المقاس"
+  nameEn: string;     // "Color", "Size"
+  options: ScrapedVariantOption[];
+}
+
 export interface ScrapedProduct {
   name: string;
   nameEn: string;
@@ -15,6 +32,11 @@ export interface ScrapedProduct {
   supplierUrl: string;
   supplierName: string;
   supplierPrice?: number;
+  // Variants support
+  hasVariants?: boolean;
+  variantTypes?: ScrapedVariantType[];
+  // Specs support - المواصفات
+  specs?: Record<string, string>;
 }
 
 // ==================== Site Detection ====================
@@ -911,12 +933,38 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
 
   console.log("[Scraper] Parsing Amazon HTML, length:", html.length);
 
+  // Detect Amazon regional domain first
+  let amazonCurrency = "USD";
+  try {
+    const domain = new URL(url).hostname;
+    if (domain.includes(".sa")) {
+      product.supplierName = "Amazon.sa";
+      amazonCurrency = "SAR";
+    } else if (domain.includes(".ae")) {
+      product.supplierName = "Amazon.ae";
+      amazonCurrency = "AED";
+    } else if (domain.includes(".co.uk")) {
+      product.supplierName = "Amazon.co.uk";
+      amazonCurrency = "GBP";
+    } else if (domain.includes(".de")) {
+      product.supplierName = "Amazon.de";
+      amazonCurrency = "EUR";
+    } else if (domain.includes(".eg")) {
+      product.supplierName = "Amazon.eg";
+      amazonCurrency = "EGP";
+    }
+  } catch {
+    /* keep default */
+  }
+  console.log("[Scraper] Amazon region:", product.supplierName, "Currency:", amazonCurrency);
+
   // 1) JSON-LD structured data
   const jsonLd = findProductInJsonLd(parseJsonLd(html));
+  let jsonLdDescription = "";
   if (jsonLd) {
     console.log("[Scraper] Amazon: Found JSON-LD data");
     product.nameEn = jsonLd.name || "";
-    product.description = jsonLd.description || "";
+    jsonLdDescription = jsonLd.description || ""; // حفظ للاستخدام لاحقاً
     if (jsonLd.image) {
       product.images = Array.isArray(jsonLd.image)
         ? jsonLd.image
@@ -933,18 +981,35 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
     }
   }
 
-  // 2) Product title from <span id="productTitle">
+  // 2) Product title from multiple patterns
   if (!product.nameEn) {
     const titlePatterns = [
+      // Standard product title span
       /<span[^>]*id=["']productTitle["'][^>]*>\s*([^<]+)/i,
+      // Title inside h1
       /<h1[^>]*id=["']title["'][^>]*>[\s\S]*?<span[^>]*>\s*([^<]+)/i,
+      // Title wrapper div
+      /<div[^>]*id=["']titleSection["'][^>]*>[\s\S]*?<span[^>]*>\s*([^<]+)/i,
+      // Title in centerCol
+      /<div[^>]*id=["']centerCol["'][^>]*>[\s\S]*?<span[^>]*id=["']productTitle["'][^>]*>\s*([^<]+)/i,
+      // Desktop title
+      /<span[^>]*class=["'][^"']*product-title[^"']*["'][^>]*>\s*([^<]+)/i,
+      // Mobile title
+      /<h1[^>]*class=["'][^"']*a-size-large[^"']*["'][^>]*>\s*([^<]+)/i,
+      // JSON data pattern
       /"title"\s*:\s*"([^"]{10,300})"/,
+      // Arabic title pattern for Amazon.sa
+      /<span[^>]*data-hook=["']product-title["'][^>]*>\s*([^<]+)/i,
     ];
     for (const p of titlePatterns) {
       const m = html.match(p);
       if (m) {
-        product.nameEn = decodeHtmlEntities(m[1].trim());
-        break;
+        const title = decodeHtmlEntities(m[1].trim());
+        if (title && title.length > 5) {
+          product.nameEn = title;
+          console.log("[Scraper] Amazon: Found title:", title.substring(0, 50));
+          break;
+        }
       }
     }
   }
@@ -952,20 +1017,49 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
   // 3) Price extraction — Amazon uses many patterns
   if (!product.price) {
     const pricePatterns = [
+      // Apex price (main price display)
+      /class=["']apexPriceToPay["'][^>]*>[\s\S]*?<span[^>]*class=["']a-offscreen["'][^>]*>([^<]+)/i,
+      // Price amount from data
       /"priceAmount"\s*:\s*"?([\d,.]+)"?/,
+      // Core price
+      /class=["']a-price[^"']*["'][^>]*>[\s\S]*?<span[^>]*class=["']a-offscreen["'][^>]*>([^<]+)/i,
+      // Price whole + fraction
+      /class=["']a-price-whole["'][^>]*>([\d,]+)[\s\S]*?class=["']a-price-fraction["'][^>]*>(\d+)/i,
+      // Deal price
+      /id=["']priceblock_dealprice["'][^>]*>([^<]+)/i,
+      // Our price
+      /id=["']priceblock_ourprice["'][^>]*>([^<]+)/i,
+      // Sale price
+      /id=["']priceblock_saleprice["'][^>]*>([^<]+)/i,
+      // Kindle/digital price
+      /id=["']kindle-price["'][^>]*>([^<]+)/i,
+      // Buy box price
+      /"buyingPrice"\s*:\s*"?([^"]+)"?/,
+      // Mobile price
+      /id=["']corePrice_feature_div["'][^>]*>[\s\S]*?<span[^>]*class=["']a-offscreen["'][^>]*>([^<]+)/i,
+      // SNS price
+      /id=["']sns-base-price["'][^>]*>([^<]+)/i,
+      // Price in JSON
       /"price"\s*:\s*"?([\d,.]+)"?\s*[,}]/,
-      /class=["']a-price-whole["'][^>]*>([\d,]+)/,
-      /id=["']priceblock_(?:dealprice|ourprice|saleprice)["'][^>]*>[^<]*?([\d,.]+)/i,
-      /class=["']apexPriceToPay["'][^>]*>[\s\S]*?<span[^>]*>([\d,.]+)/i,
-      /class=["']a-offscreen["'][^>]*>([\d,.]+)/,
+      // Currency with price
+      /(?:SAR|AED|USD|EUR|GBP|EGP)\s*([\d,.]+)/,
+      /(?:ر\.س|د\.إ|جنيه|ج\.م)\s*([\d,.]+)/i,
+      // Price with currency symbol
+      />([\d,.]+)\s*(?:SAR|AED|ر\.س|د\.إ)</i,
     ];
     for (const p of pricePatterns) {
       const m = html.match(p);
       if (m) {
-        const val = parseFloat(m[1].replace(/,/g, ""));
+        // Handle price whole + fraction pattern
+        let priceStr = m[1];
+        if (m[2]) priceStr = m[1] + "." + m[2];
+        // Extract numbers from price string (handles "SAR 199.00" etc)
+        const numMatch = priceStr.replace(/[^\d.,]/g, "").replace(/,/g, "");
+        const val = parseFloat(numMatch);
         if (val > 0) {
           product.price = val;
           product.supplierPrice = val;
+          console.log("[Scraper] Amazon: Found price:", val);
           break;
         }
       }
@@ -975,16 +1069,21 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
   // Old / list price
   if (product.price && !product.oldPrice) {
     const oldPricePatterns = [
-      /class=["']a-text-price["'][^>]*>[\s\S]*?<span[^>]*>([\d,.]+)/i,
-      /id=["']listPrice["'][^>]*>([\d,.]+)/i,
-      /"listPrice"\s*:\s*"?([\d,.]+)"?/,
+      /class=["']a-text-price["'][^>]*>[\s\S]*?<span[^>]*class=["']a-offscreen["'][^>]*>([^<]+)/i,
+      /class=["']basisPrice["'][^>]*>[\s\S]*?<span[^>]*class=["']a-offscreen["'][^>]*>([^<]+)/i,
+      /id=["']listPrice["'][^>]*>([^<]+)/i,
+      /"listPrice"\s*:\s*"?([^"]+)"?/,
+      /class=["']a-text-strike["'][^>]*>([^<]+)/i,
+      /"was"\s*:\s*"?([^"]+)"?/,
     ];
     for (const p of oldPricePatterns) {
       const m = html.match(p);
       if (m) {
-        const val = parseFloat(m[1].replace(/,/g, ""));
+        const numMatch = m[1].replace(/[^\d.,]/g, "").replace(/,/g, "");
+        const val = parseFloat(numMatch);
         if (val > product.price) {
           product.oldPrice = val;
+          console.log("[Scraper] Amazon: Found old price:", val);
           break;
         }
       }
@@ -997,6 +1096,7 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
       /'colorImages':\s*\{[^}]*'initial'\s*:\s*(\[[\s\S]*?\])\s*\}/,
       /"colorImages"\s*:\s*\{[^}]*"initial"\s*:\s*(\[[\s\S]*?\])\s*\}/,
       /"imageGalleryData"\s*:\s*(\[[\s\S]*?\])/,
+      /"images"\s*:\s*(\[[\s\S]*?"mainUrl"[\s\S]*?\])/,
     ];
     for (const p of imgPatterns) {
       const m = html.match(p);
@@ -1006,17 +1106,39 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const urls = arr
             .map((i: any) => {
-              // Prefer hiRes (full quality), then large, then thumb
-              const raw = i.hiRes || i.large || i.thumb || "";
+              // Prefer hiRes (full quality), then large, then mainUrl, then thumb
+              const raw = i.hiRes || i.large || i.mainUrl || i.thumb || "";
               return amazonFullResUrl(raw);
             })
             .filter(Boolean);
           if (urls.length > 0) {
             product.images = urls.slice(0, 10);
+            console.log("[Scraper] Amazon: Found", urls.length, "images from JSON");
             break;
           }
         } catch {
           /* continue */
+        }
+      }
+    }
+  }
+
+  // Fallback: landingImage or main product image
+  if (product.images.length === 0) {
+    const mainImgPatterns = [
+      /<img[^>]*id=["']landingImage["'][^>]*src=["']([^"']+)["']/i,
+      /<img[^>]*id=["']imgBlkFront["'][^>]*src=["']([^"']+)["']/i,
+      /<img[^>]*class=["'][^"']*a-dynamic-image[^"']*["'][^>]*src=["']([^"']+)["']/i,
+      /<img[^>]*data-old-hires=["']([^"']+)["']/i,
+    ];
+    for (const p of mainImgPatterns) {
+      const m = html.match(p);
+      if (m) {
+        const imgUrl = amazonFullResUrl(m[1]);
+        if (imgUrl) {
+          product.images.push(imgUrl);
+          console.log("[Scraper] Amazon: Found main image");
+          break;
         }
       }
     }
@@ -1036,49 +1158,665 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
       }
       if (product.images.length >= 10) break;
     }
+    if (product.images.length > 0) {
+      console.log("[Scraper] Amazon: Found", product.images.length, "images from CDN regex");
+    }
   }
 
-  // 5) OG tags fallback
+  // 4.5) Extract color variants (separate from main images)
+  const colorVariants: ScrapedVariantOption[] = [];
+  
+  // Try to extract colorToAsin data (contains all color options)
+  const colorToAsinPatterns = [
+    /'colorToAsin'\s*:\s*(\{[\s\S]*?\})\s*,\s*'/,
+    /"colorToAsin"\s*:\s*(\{[\s\S]*?\})\s*,/,
+    /colorToAsin['"]?\s*:\s*(\{[^}]+\})/,
+  ];
+  
+  for (const p of colorToAsinPatterns) {
+    const m = html.match(p);
+    if (m) {
+      try {
+        const colorData = JSON.parse(m[1].replace(/'/g, '"'));
+        for (const colorName of Object.keys(colorData)) {
+          if (colorName && colorName.length > 0) {
+            colorVariants.push({
+              name: colorName,
+              value: colorName,
+            });
+          }
+        }
+        if (colorVariants.length > 0) {
+          console.log("[Scraper] Amazon: Found", colorVariants.length, "color variants from colorToAsin");
+          break;
+        }
+      } catch {
+        /* continue */
+      }
+    }
+  }
+  
+  // Try to extract color swatches with images
+  if (colorVariants.length === 0) {
+    // Pattern for color swatches in variation section
+    const swatchPattern = /<li[^>]*data-defaultasin[^>]*>[\s\S]*?<img[^>]*alt=["']([^"']+)["'][^>]*src=["']([^"']+)["']/gi;
+    let swatchMatch;
+    const seenColors = new Set<string>();
+    while ((swatchMatch = swatchPattern.exec(html)) !== null) {
+      const colorName = decodeHtmlEntities(swatchMatch[1].trim());
+      const swatchImg = swatchMatch[2];
+      if (colorName && !seenColors.has(colorName) && 
+          !colorName.includes("video") && 
+          colorName.length < 50) {
+        seenColors.add(colorName);
+        colorVariants.push({
+          name: colorName,
+          value: colorName,
+          image: amazonFullResUrl(swatchImg) || swatchImg,
+        });
+      }
+    }
+    if (colorVariants.length > 0) {
+      console.log("[Scraper] Amazon: Found", colorVariants.length, "color variants from swatches");
+    }
+  }
+  
+  // Try twister section for colors
+  if (colorVariants.length === 0) {
+    const twisterColorPattern = /<div[^>]*id=["']variation_color_name["'][^>]*>[\s\S]*?<span[^>]*class=["']selection["'][^>]*>([^<]+)/i;
+    const currentColorMatch = html.match(twisterColorPattern);
+    if (currentColorMatch) {
+      const currentColor = decodeHtmlEntities(currentColorMatch[1].trim());
+      if (currentColor) {
+        colorVariants.push({ name: currentColor, value: currentColor });
+        console.log("[Scraper] Amazon: Found current color:", currentColor);
+      }
+    }
+    
+    // Look for other color options in twister
+    const colorOptionPattern = /<li[^>]*class=["'][^"']*swatchAvailable[^"']*["'][^>]*title=["']([^"']+)["']/gi;
+    let colorMatch;
+    const seenColors = new Set(colorVariants.map(c => c.value));
+    while ((colorMatch = colorOptionPattern.exec(html)) !== null) {
+      const colorTitle = decodeHtmlEntities(colorMatch[1].trim());
+      // Extract color name from title like "Click to select Navy"
+      const colorName = colorTitle.replace(/^Click to select\s*/i, '').trim();
+      if (colorName && !seenColors.has(colorName) && colorName.length < 50) {
+        seenColors.add(colorName);
+        colorVariants.push({ name: colorName, value: colorName });
+      }
+    }
+    if (colorVariants.length > 0) {
+      console.log("[Scraper] Amazon: Found", colorVariants.length, "colors from twister");
+    }
+  }
+  
+  // Set variants if found
+  if (colorVariants.length > 1) {
+    product.hasVariants = true;
+    product.variantTypes = [{
+      name: "اللون",
+      nameEn: "Color",
+      options: colorVariants.map(c => ({
+        name: c.name || c.value,
+        value: c.value,
+        image: c.image, // صورة swatch صغيرة
+      })),
+    }];
+    console.log("[Scraper] Amazon: Set", colorVariants.length, "color variants");
+  }
+
+  // 5) استخراج الوصف الكامل - نحاول مصادر متعددة
+  const descriptionParts: string[] = [];
+  
+  // للتصحيح - عرض جزء من HTML في الكونسول
+  console.log("[Scraper] HTML length:", html.length);
+  console.log("[Scraper] HTML contains 'feature-bullets':", html.includes('feature-bullets'));
+  console.log("[Scraper] HTML contains 'detailBullets':", html.includes('detailBullets'));
+  console.log("[Scraper] HTML contains 'a-list-item':", html.includes('a-list-item'));
+  console.log("[Scraper] HTML contains 'a-spacing-mini':", html.includes('a-spacing-mini'));
+  console.log("[Scraper] HTML contains 'عن هذه السلعة':", html.includes('عن هذه السلعة'));
+  console.log("[Scraper] HTML contains 'About this item':", html.includes('About this item'));
+  
+  // ★★★ طباعة جزء من HTML للتحقق ★★★
+  const aboutIndex = html.indexOf('عن هذه السلعة');
+  if (aboutIndex > -1) {
+    console.log("[Scraper] Found 'عن هذه السلعة' at index:", aboutIndex);
+    console.log("[Scraper] HTML around 'عن هذه السلعة':", html.substring(aboutIndex, aboutIndex + 2000));
+  }
+  
+  // ★★★ البحث المباشر عن ul.a-unordered-list with li.a-spacing-mini ★★★
+  // هذا هو الـ pattern الدقيق من DevTools
+  const exactPattern = /<ul[^>]*class=["'][^"']*a-unordered-list[^"']*["'][^>]*>[\s\S]*?<li[^>]*class=["'][^"']*a-spacing-mini[^"']*["'][^>]*>[\s\S]*?<span[^>]*class=["'][^"']*a-list-item[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi;
+  const exactMatches: string[] = [];
+  let exactMatch;
+  while ((exactMatch = exactPattern.exec(html)) !== null && exactMatches.length < 15) {
+    const text = exactMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanText = decodeHtmlEntities(text);
+    if (cleanText.length > 20 && cleanText.length < 600 && !cleanText.includes("›")) {
+      exactMatches.push(cleanText);
+    }
+  }
+  if (exactMatches.length >= 2) {
+    descriptionParts.push("عن هذه السلعة:\n• " + exactMatches.join("\n• "));
+    console.log("[Scraper] Amazon: Found", exactMatches.length, "items from exact ul/li/span pattern");
+  }
+  
+  // ★★★ الأهم: البحث المباشر عن "عن هذه السلعة" أو "About this item" ★★★
+  if (descriptionParts.length === 0) {
+    const aboutThisItemPatterns = [
+    // البحث عن العنوان متبوعاً بقائمة ul
+    /(?:عن هذه السلعة|About this item)[^<]*<\/[^>]+>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i,
+    // h3 أو h2 يحتوي العنوان
+    /<h[23][^>]*>[^<]*(?:عن هذه السلعة|About this item)[^<]*<\/h[23]>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i,
+    // span أو div يحتوي العنوان
+    /<(?:span|div)[^>]*>[^<]*(?:عن هذه السلعة|About this item)[^<]*<\/(?:span|div)>[\s\S]*?<ul[^>]*>([\s\S]*?)<\/ul>/i,
+    // البحث في أي مكان بعد العنوان
+    /(?:عن هذه السلعة|About this item)[\s\S]{0,500}<ul[^>]*>([\s\S]*?)<\/ul>/i,
+    ];
+    
+    for (const pattern of aboutThisItemPatterns) {
+      const m = html.match(pattern);
+      if (m && m[1]) {
+        console.log("[Scraper] Found 'عن هذه السلعة' section!");
+        // استخراج li items
+        const liItems = m[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+        if (liItems && liItems.length > 0) {
+          const bullets = liItems
+            .map(li => {
+              const text = li.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              return decodeHtmlEntities(text);
+            })
+            .filter(t => t.length > 15 && t.length < 600);
+          if (bullets.length > 0) {
+            descriptionParts.push("عن هذه السلعة:\n• " + bullets.join("\n• "));
+            console.log("[Scraper] Amazon: Found", bullets.length, "bullets from 'عن هذه السلعة'");
+            break;
+          }
+        }
+        // إذا لم نجد li، نأخذ span elements
+        const spanItems = m[1].match(/<span[^>]*>([\s\S]*?)<\/span>/gi);
+        if (spanItems && spanItems.length > 0) {
+          const bullets = spanItems
+            .map(span => {
+              const text = span.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              return decodeHtmlEntities(text);
+            })
+            .filter(t => t.length > 20 && t.length < 600);
+          if (bullets.length > 0) {
+            descriptionParts.push("عن هذه السلعة:\n• " + bullets.join("\n• "));
+            console.log("[Scraper] Amazon: Found", bullets.length, "spans from 'عن هذه السلعة'");
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // 5.0) البحث في JSON المضمن في scripts - Amazon يخزن البيانات هناك أحياناً
+  if (descriptionParts.length === 0) {
+    const scriptJsonPatterns = [
+      /P\.register\s*\(\s*['"]twister-js-init-dpx-data['"]\s*,\s*(\{[\s\S]*?\})\s*\)/i,
+      /"featureBullets"\s*:\s*\[([\s\S]*?)\]/i,
+      /"aboutThisItem"\s*:\s*(\[[\s\S]*?\])/i,
+      /var\s+obj\s*=\s*jQuery\.parseHTML\s*\(['"](<ul[\s\S]*?<\/ul>)['"]\)/i,
+    ];
+    
+    for (const pattern of scriptJsonPatterns) {
+      const m = html.match(pattern);
+      if (m) {
+        console.log("[Scraper] Found script data pattern");
+        try {
+          // محاولة استخراج النص
+          const content = m[1];
+          // إذا كان JSON array
+          if (content.startsWith('[')) {
+            const items = JSON.parse(content);
+            if (Array.isArray(items) && items.length > 0) {
+              const bullets = items
+                .map((item: string | { value?: string }) => typeof item === 'string' ? item : item?.value || '')
+                .filter((t: string) => t.length > 10);
+              if (bullets.length > 0) {
+                descriptionParts.push("عن المنتج:\n• " + bullets.join("\n• "));
+                console.log("[Scraper] Amazon: Found", bullets.length, "items from script JSON");
+              }
+            }
+          }
+        } catch (e) {
+          console.log("[Scraper] Script JSON parse error:", e);
+        }
+      }
+    }
+  }
+  
+  // 5.0.1) البحث عن قسم "عن هذه السلعة" (About this item) - الأهم
+  // Amazon.sa uses detailBullets_feature_div
+  const detailBulletsPatterns = [
+    // detailBullets_feature_div - الأكثر شيوعاً في Amazon
+    /<div[^>]*id=["']detailBullets_feature_div["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i,
+    // feature-bullets as wrapper
+    /<div[^>]*id=["']feature-bullets["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i,
+    // featurebullets_feature_div
+    /<div[^>]*id=["']featurebullets_feature_div["'][^>]*>([\s\S]*?)<\/div>/i,
+    // productOverview_feature_div
+    /<div[^>]*id=["']productOverview_feature_div["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i,
+    // aplus_feature_div
+    /<div[^>]*id=["']aplus_feature_div["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i,
+  ];
+  
+  for (const p of detailBulletsPatterns) {
+    const m = html.match(p);
+    if (m) {
+      // البحث عن li elements
+      const liItems = m[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+      if (liItems && liItems.length > 0) {
+        const points = liItems
+          .map(li => {
+            const text = li.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return decodeHtmlEntities(text);
+          })
+          .filter(t => t.length > 15 && t.length < 600);
+        if (points.length > 0) {
+          descriptionParts.push("عن المنتج:\n• " + points.join("\n• "));
+          console.log("[Scraper] Amazon: Found", points.length, "detail bullets from detailBullets");
+          break;
+        }
+      }
+      // محاولة البحث عن span elements
+      const spanItems = m[1].match(/<span[^>]*class=["'][^"']*a-list-item[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi);
+      if (spanItems && spanItems.length > 0) {
+        const points = spanItems
+          .map(span => {
+            const text = span.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return decodeHtmlEntities(text);
+          })
+          .filter(t => t.length > 15 && t.length < 600 && !t.includes("›"));
+        if (points.length > 0) {
+          descriptionParts.push("عن المنتج:\n• " + points.join("\n• "));
+          console.log("[Scraper] Amazon: Found", points.length, "span items");
+          break;
+        }
+      }
+    }
+  }
+  
+  // 5.0.5) البحث عن feature bullets class مباشرة
+  if (descriptionParts.length === 0) {
+    // البحث في كل ال ul elements بـ class a-unordered-list
+    const ulPattern = /<ul[^>]*class=["'][^"']*a-unordered-list[^"']*["'][^>]*>([\s\S]*?)<\/ul>/gi;
+    let ulMatch;
+    while ((ulMatch = ulPattern.exec(html)) !== null) {
+      const listContent = ulMatch[1];
+      // تحقق من وجود a-list-item spans
+      const spanItems = listContent.match(/<span[^>]*class=["'][^"']*a-list-item[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi);
+      if (spanItems && spanItems.length >= 3) {
+        const points = spanItems
+          .map(span => {
+            const text = span.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return decodeHtmlEntities(text);
+          })
+          .filter(t => t.length > 20 && t.length < 600 && !t.includes("›") && !t.toLowerCase().includes("show"));
+        if (points.length >= 3) {
+          descriptionParts.push("عن المنتج:\n• " + points.join("\n• "));
+          console.log("[Scraper] Amazon: Found", points.length, "items from ul a-list-item");
+          break;
+        }
+      }
+    }
+  }
+  
+  // 5.0.5.5) البحث عن ANY li items طويلة بما يكفي
+  if (descriptionParts.length === 0) {
+    const allLiPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    const goodBullets: string[] = [];
+    let liMatch;
+    while ((liMatch = allLiPattern.exec(html)) !== null && goodBullets.length < 15) {
+      const text = liMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const cleanText = decodeHtmlEntities(text);
+      // نقاط جيدة: طويلة بما يكفي، لا تحتوي روابط تنقل
+      if (cleanText.length > 40 && cleanText.length < 500 && 
+          !cleanText.includes("›") && 
+          !cleanText.toLowerCase().includes("show") &&
+          !cleanText.toLowerCase().includes("click") &&
+          !cleanText.includes("http") &&
+          !/^\d+$/.test(cleanText)) {
+        goodBullets.push(cleanText);
+      }
+    }
+    if (goodBullets.length >= 3) {
+      // ترتيب حسب الطول (الأطول أولاً) واختيار أفضل 8
+      const sorted = goodBullets.sort((a, b) => b.length - a.length).slice(0, 8);
+      descriptionParts.push("عن المنتج:\n• " + sorted.join("\n• "));
+      console.log("[Scraper] Amazon: Found", sorted.length, "good li bullets");
+    }
+  }
+  
+  // 5.0.6) البحث عن قسم productFactsDesktopExpander (شائع في iPhone)
+  if (descriptionParts.length === 0) {
+    const factsPatternsNew = [
+      /<div[^>]*id=["']productFactsDesktopExpander["'][^>]*>([\s\S]*?)<\/div>\s*<div[^>]*id=/i,
+      /<div[^>]*id=["']productFactsDesktopExpander["'][^>]*>([\s\S]*?)(?=<div[^>]*class=["']a-section["'])/i,
+    ];
+    for (const p of factsPatternsNew) {
+      const m = html.match(p);
+      if (m) {
+        const text = m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const cleanText = decodeHtmlEntities(text);
+        if (cleanText.length > 100) {
+          // محاولة تقسيم النص إلى نقاط
+          const parts = cleanText.split(/[.،؛]/g).filter(p => p.trim().length > 20);
+          if (parts.length >= 2) {
+            descriptionParts.push("عن المنتج:\n• " + parts.slice(0, 10).join("\n• "));
+            console.log("[Scraper] Amazon: Found productFactsDesktopExpander with", parts.length, "points");
+          } else {
+            descriptionParts.push("عن المنتج:\n" + cleanText.substring(0, 1000));
+            console.log("[Scraper] Amazon: Found productFactsDesktopExpander text");
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // 5.1) Feature bullets - الأفضل والأكثر تفصيلاً
+  const featureBulletsPatterns = [
+    // Standard feature bullets
+    /<ul[^>]*class=["'][^"']*a-unordered-list[^"']*a-vertical[^"']*a-spacing-mini[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i,
+    // Feature bullets container
+    /<div[^>]*id=["']feature-bullets["'][^>]*>([\s\S]*?)<\/div>/i,
+    // Alternative feature bullets
+    /<ul[^>]*class=["'][^"']*feature-bullets[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i,
+  ];
+  
+  for (const p of featureBulletsPatterns) {
+    const m = html.match(p);
+    if (m) {
+      // استخراج كل العناصر من القائمة - استخدام regex أفضل
+      const listItems = m[1].match(/<span[^>]*class=["']a-list-item["'][^>]*>([\s\S]*?)<\/span>/gi);
+      if (listItems && listItems.length > 0) {
+        const bullets = listItems
+          .map(item => {
+            const text = item.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return decodeHtmlEntities(text);
+          })
+          .filter(t => t.length > 10 && !t.includes("›") && !t.startsWith("Show"));
+        if (bullets.length > 0) {
+          descriptionParts.push("المميزات:\n• " + bullets.join("\n• "));
+          console.log("[Scraper] Amazon: Found", bullets.length, "feature bullets");
+          break;
+        }
+      }
+    }
+  }
+  
+  // 5.1.5) Fallback: البحث عن li items مباشرة
+  if (descriptionParts.length === 0) {
+    const liPattern = /<li[^>]*class=["'][^"']*a-spacing-small[^"']*["'][^>]*>[\s\S]*?<span[^>]*class=["']a-list-item["'][^>]*>([\s\S]*?)<\/span>/gi;
+    const allLi: string[] = [];
+    let liMatch;
+    while ((liMatch = liPattern.exec(html)) !== null) {
+      const text = liMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const cleanText = decodeHtmlEntities(text);
+      if (cleanText.length > 15 && cleanText.length < 500 && !cleanText.includes("›")) {
+        allLi.push(cleanText);
+      }
+      if (allLi.length >= 10) break;
+    }
+    if (allLi.length > 0) {
+      descriptionParts.push("المميزات:\n• " + allLi.join("\n• "));
+      console.log("[Scraper] Amazon: Found", allLi.length, "li items");
+    }
+  }
+  
+  // 5.2) Product description div
+  const productDescPatterns = [
+    /<div[^>]*id=["']productDescription["'][^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*id=["']productDescription_feature_div["'][^>]*>([\s\S]*?)<\/div>/i,
+  ];
+  
+  for (const p of productDescPatterns) {
+    const m = html.match(p);
+    if (m) {
+      let descText = m[1]
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      descText = decodeHtmlEntities(descText);
+      if (descText.length > 50) {
+        descriptionParts.push("الوصف:\n" + descText);
+        console.log("[Scraper] Amazon: Found product description, length:", descText.length);
+        break;
+      }
+    }
+  }
+  
+  // 5.3) A+ Content (aplus)
+  const aplusMatch = html.match(/<div[^>]*id=["']aplus[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i);
+  if (aplusMatch) {
+    let aplusText = aplusMatch[1]
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<img[^>]*>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    aplusText = decodeHtmlEntities(aplusText);
+    if (aplusText.length > 100) {
+      descriptionParts.push(aplusText.substring(0, 500));
+      console.log("[Scraper] Amazon: Found A+ content");
+    }
+  }
+  
+  // 5.4) Technical details / specs - الجدول الرئيسي للمواصفات
+  const specsFound: Record<string, string> = {};
+  
+  // 5.4.1) البحث عن جدول المواصفات - productDetails
+  const techDetailsMatch = html.match(/<table[^>]*id=["']productDetails[^"']*["'][^>]*>([\s\S]*?)<\/table>/i);
+  if (techDetailsMatch) {
+    const rows = techDetailsMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    if (rows && rows.length > 0) {
+      for (const row of rows) {
+        const thMatch = row.match(/<th[^>]*>([\s\S]*?)<\/th>/i);
+        const tdMatch = row.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
+        if (thMatch && tdMatch) {
+          const key = decodeHtmlEntities(thMatch[1].replace(/<[^>]+>/g, '').trim());
+          const val = decodeHtmlEntities(tdMatch[1].replace(/<[^>]+>/g, '').trim());
+          if (key && val && key.length < 50 && val.length < 200) {
+            specsFound[key] = val;
+          }
+        }
+      }
+    }
+  }
+  
+  // 5.4.2) البحث عن جدول المواصفات العربي - عادة في div مع class معين
+  // pattern: <span>اسم الخاصية</span> <span>القيمة</span>
+  const specTablePatterns = [
+    // prodDetTable - جدول المواصفات الرئيسي
+    /<table[^>]*id=["']prodDetTable["'][^>]*>([\s\S]*?)<\/table>/i,
+    // technicalSpecifications_section_1
+    /<table[^>]*id=["']technicalSpecifications[^"']*["'][^>]*>([\s\S]*?)<\/table>/i,
+    // product-specification-table
+    /<table[^>]*class=["'][^"']*product-specification[^"']*["'][^>]*>([\s\S]*?)<\/table>/i,
+  ];
+  
+  for (const pattern of specTablePatterns) {
+    const m = html.match(pattern);
+    if (m) {
+      const rows = m[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+      if (rows) {
+        for (const row of rows) {
+          const cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi);
+          if (cells && cells.length >= 2) {
+            const key = decodeHtmlEntities(cells[0].replace(/<[^>]+>/g, '').trim());
+            const val = decodeHtmlEntities(cells[1].replace(/<[^>]+>/g, '').trim());
+            if (key && val && key.length < 50 && val.length < 200 && !specsFound[key]) {
+              specsFound[key] = val;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 5.4.3) البحث عن المواصفات في format جديد (ul مع span pairs)
+  // <ul><li><span>العلامة التجارية</span><span>أبل</span></li></ul>
+  const specListPattern = /<ul[^>]*class=["'][^"']*detail-bullet-list[^"']*["'][^>]*>([\s\S]*?)<\/ul>/gi;
+  let specListMatch;
+  while ((specListMatch = specListPattern.exec(html)) !== null) {
+    const liItems = specListMatch[1].match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+    if (liItems) {
+      for (const li of liItems) {
+        const spans = li.match(/<span[^>]*>([\s\S]*?)<\/span>/gi);
+        if (spans && spans.length >= 2) {
+          const key = decodeHtmlEntities(spans[0].replace(/<[^>]+>/g, '').replace(/[:\s]+$/, '').trim());
+          const val = decodeHtmlEntities(spans[1].replace(/<[^>]+>/g, '').trim());
+          if (key && val && key.length < 50 && val.length < 200 && !specsFound[key]) {
+            specsFound[key] = val;
+          }
+        }
+      }
+    }
+  }
+  
+  // 5.4.4) البحث عن المواصفات في div#productOverview_feature_div
+  const overviewPattern = /<div[^>]*id=["']productOverview_feature_div["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i;
+  const overviewMatch = html.match(overviewPattern);
+  if (overviewMatch) {
+    // البحث عن tr مع td pairs
+    const rows = overviewMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    if (rows) {
+      for (const row of rows) {
+        const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+        if (cells && cells.length >= 2) {
+          const key = decodeHtmlEntities(cells[0].replace(/<[^>]+>/g, '').trim());
+          const val = decodeHtmlEntities(cells[1].replace(/<[^>]+>/g, '').trim());
+          if (key && val && key.length < 50 && val.length < 200 && !specsFound[key]) {
+            specsFound[key] = val;
+          }
+        }
+      }
+    }
+    // البحث عن span pairs
+    const spanPairs = overviewMatch[1].match(/<span[^>]*class=["'][^"']*a-text-bold[^"']*["'][^>]*>([\s\S]*?)<\/span>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/gi);
+    if (spanPairs) {
+      for (const pair of spanPairs) {
+        const boldSpan = pair.match(/<span[^>]*class=["'][^"']*a-text-bold[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+        const valueSpan = pair.match(/<\/span>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i);
+        if (boldSpan && valueSpan) {
+          const key = decodeHtmlEntities(boldSpan[1].replace(/<[^>]+>/g, '').trim());
+          const val = decodeHtmlEntities(valueSpan[1].replace(/<[^>]+>/g, '').trim());
+          if (key && val && key.length < 50 && val.length < 200 && !specsFound[key]) {
+            specsFound[key] = val;
+          }
+        }
+      }
+    }
+  }
+  
+  // 5.4.5) البحث عن أي جدول يحتوي على مواصفات
+  const anyTablePattern = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+  let tableMatch;
+  while ((tableMatch = anyTablePattern.exec(html)) !== null && Object.keys(specsFound).length < 15) {
+    const tableContent = tableMatch[1];
+    // تحقق أن الجدول يحتوي على بيانات مواصفات (كلمات مفتاحية)
+    if (tableContent.includes('العلامة') || tableContent.includes('Brand') || 
+        tableContent.includes('الشاشة') || tableContent.includes('Screen') ||
+        tableContent.includes('الذاكرة') || tableContent.includes('Memory') ||
+        tableContent.includes('اللون') || tableContent.includes('Color')) {
+      const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+      if (rows) {
+        for (const row of rows) {
+          const cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi);
+          if (cells && cells.length >= 2) {
+            const key = decodeHtmlEntities(cells[0].replace(/<[^>]+>/g, '').trim());
+            const val = decodeHtmlEntities(cells[1].replace(/<[^>]+>/g, '').trim());
+            if (key && val && key.length > 2 && key.length < 50 && val.length < 200 && !specsFound[key]) {
+              specsFound[key] = val;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // إضافة المواصفات للمنتج
+  const specsCount = Object.keys(specsFound).length;
+  if (specsCount > 0) {
+    // حفظ المواصفات في حقل specs منفصل
+    product.specs = specsFound;
+    
+    // إضافة نص المواصفات للوصف أيضاً
+    const specsText = Object.entries(specsFound)
+      .map(([k, v]) => `• ${k}: ${v}`)
+      .join("\n");
+    descriptionParts.unshift("📋 المواصفات:\n" + specsText);
+    console.log("[Scraper] Amazon: Found", specsCount, "specifications");
+  }
+  
+  // تجميع الوصف النهائي
+  if (descriptionParts.length > 0) {
+    product.description = descriptionParts.join("\n\n");
+    console.log("[Scraper] Amazon: Compiled description from", descriptionParts.length, "parts");
+  }
+  
+  // 5.5) Fallbacks إذا لم نجد شيء
+  if (!product.description || product.description.length < 50) {
+    // Try OG description
+    const ogDesc = parseMetaTag(html, "og:description");
+    if (ogDesc && ogDesc.length > (product.description?.length || 0)) {
+      // إضافة رسالة توضيحية أن هذا وصف مختصر
+      product.description = "⚠️ الوصف التفصيلي غير متاح - يرجى نسخه يدوياً من صفحة المنتج:\n\n" + ogDesc + "\n\n---\n💡 نصيحة: افتح رابط المنتج في أمازون وانسخ قسم 'عن هذه السلعة' هنا.";
+      console.log("[Scraper] Amazon: Using OG description with note, length:", ogDesc.length);
+    }
+  }
+  
+  if (!product.description || product.description.length < 50) {
+    // Try JSON-LD description
+    if (jsonLdDescription && jsonLdDescription.length > (product.description?.length || 0)) {
+      product.description = jsonLdDescription;
+      console.log("[Scraper] Amazon: Using JSON-LD description");
+    }
+  }
+  
+  // 5.6) آخر محاولة: البحث عن أي نص وصفي
+  if (!product.description || product.description.length < 30) {
+    // محاولة استخراج من bookDescription
+    const bookDescMatch = html.match(/<div[^>]*id=["']bookDescription[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    if (bookDescMatch) {
+      const text = bookDescMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (text.length > 50) {
+        product.description = decodeHtmlEntities(text);
+        console.log("[Scraper] Amazon: Using book description");
+      }
+    }
+  }
+  
+  if (!product.description || product.description.length < 30) {
+    // استخدام العنوان كوصف مؤقت
+    if (product.nameEn && product.nameEn.length > 20) {
+      product.description = product.nameEn;
+      console.log("[Scraper] Amazon: Using title as description fallback");
+    }
+  }
+  
+  // 6) OG tags fallback for title and image
   if (!product.nameEn)
     product.nameEn = parseMetaTag(html, "og:title")
       .replace(/\s*:\s*Amazon.*$/i, "")
       .trim();
-  if (!product.description)
-    product.description = parseMetaTag(html, "og:description");
   if (product.images.length === 0) {
     const ogImage = parseMetaTag(html, "og:image");
     if (ogImage) product.images = [ogImage];
-  }
-
-  // 6) Description from feature bullets
-  if (!product.description) {
-    const bulletMatches = html.match(
-      /<span[^>]*class=["']a-list-item["'][^>]*>\s*([^<]{10,})/gi,
-    );
-    if (bulletMatches) {
-      product.description = bulletMatches
-        .slice(0, 5)
-        .map((b) => b.replace(/<[^>]+>/g, "").trim())
-        .filter(Boolean)
-        .join(" • ");
-    }
-  }
-
-  // Detect Amazon regional domain
-  try {
-    const domain = new URL(url).hostname;
-    if (domain.includes(".sa")) product.supplierName = "Amazon.sa";
-    else if (domain.includes(".ae")) product.supplierName = "Amazon.ae";
-    else if (domain.includes(".co.uk")) product.supplierName = "Amazon.co.uk";
-    else if (domain.includes(".de")) product.supplierName = "Amazon.de";
-  } catch {
-    /* keep default */
   }
 
   // Title tag fallback
   if (!product.nameEn) {
     const t = getTitleFromHtml(html)
       .replace(/\s*[-:|]\s*Amazon.*$/i, "")
+      .replace(/\s*\|.*$/i, "")
       .trim();
     if (t) product.nameEn = t;
   }
@@ -1089,6 +1827,8 @@ function parseAmazon(html: string, url: string): ScrapedProduct {
     name: product.name?.substring(0, 50),
     price: product.price,
     images: product.images.length,
+    description: product.description?.substring(0, 100),
+    supplier: product.supplierName,
   });
 
   return product;
