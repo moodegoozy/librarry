@@ -46,6 +46,9 @@ import CJProducts from "./pages/Dashboard/CJProducts";
 import CJOrders from "./pages/Dashboard/CJOrders";
 import CJSettings from "./pages/Dashboard/CJSettings";
 
+// Password Protection
+import PasswordGate from "./components/PasswordGate/PasswordGate";
+
 // Styles
 import "./styles/globals.css";
 
@@ -125,6 +128,7 @@ const App: React.FC = () => {
   }
 
   return (
+    <PasswordGate>
     <Router>
       <Routes>
         {/* Auth Routes */}
@@ -245,6 +249,7 @@ const App: React.FC = () => {
         />
       </Routes>
     </Router>
+    </PasswordGate>
   );
 };
 
