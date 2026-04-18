@@ -139,6 +139,11 @@ const DashboardLayout: React.FC = () => {
     }
   };
 
+  // حماية من عرض المحتوى قبل التوجيه
+  if (!user || user.role !== "admin") {
+    return null;
+  }
+
   return (
     <div
       className={`dashboard-layout ${sidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}

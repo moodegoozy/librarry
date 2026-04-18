@@ -304,3 +304,9 @@
     gap: 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .cj-stats-row {
+    grid-template-columns: 1fr;
+  }
+}

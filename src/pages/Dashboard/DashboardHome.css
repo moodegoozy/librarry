@@ -524,8 +524,13 @@
 }
 
 /* Recent Orders Table */
+.dashboard-home .table-container {
+  overflow-x: auto;
+}
+
 .recent-orders-table {
   width: 100%;
+  min-width: 500px;
   border-collapse: collapse;
 }
 

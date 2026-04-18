@@ -101,13 +101,16 @@ const Account: React.FC = () => {
     });
   }, [user, navigate]);
 
+  const [ordersError, setOrdersError] = useState(false);
+
   // جلب طلبات المستخدم
   useEffect(() => {
     if (user && activeTab === "orders") {
       setOrdersLoading(true);
+      setOrdersError(false);
       getUserOrders(user.id)
         .then(setOrders)
-        .catch(console.error)
+        .catch(() => setOrdersError(true))
         .finally(() => setOrdersLoading(false));
     }
   }, [user, activeTab]);
@@ -403,6 +406,18 @@ const Account: React.FC = () => {
                     <div className="loading-state">
                       <Loader className="spinner" size={40} />
                       <p>جاري تحميل الطلبات...</p>
+                    </div>
+                  ) : ordersError ? (
+                    <div className="empty-state">
+                      <XCircle size={60} />
+                      <h3>حدث خطأ</h3>
+                      <p>تعذر تحميل الطلبات، يرجى المحاولة لاحقاً</p>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => { setOrdersError(false); setOrdersLoading(true); getUserOrders(user!.id).then(setOrders).catch(() => setOrdersError(true)).finally(() => setOrdersLoading(false)); }}
+                      >
+                        إعادة المحاولة
+                      </button>
                     </div>
                   ) : orders.length === 0 ? (
                     <div className="empty-state">

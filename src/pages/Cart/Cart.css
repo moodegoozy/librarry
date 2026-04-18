@@ -164,7 +164,7 @@
   font-weight: 700;
   color: var(--primary);
   min-width: 120px;
-  text-align: left;
+  text-align: start;
 }
 
 .remove-btn {

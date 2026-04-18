@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Palette,
   Ruler,
+  Loader,
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import ProductCard from "../../components/ProductCard/ProductCard";
@@ -39,7 +40,7 @@ const cleanDescription = (desc: string): string => {
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { products, addToCart, toggleWishlist, isInWishlist, categories } =
+  const { products, addToCart, toggleWishlist, isInWishlist, categories, productsLoaded } =
     useStore();
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -145,6 +146,19 @@ const ProductDetail: React.FC = () => {
       alert("تم نسخ الرابط!");
     }
   };
+
+  if (!product && !productsLoaded) {
+    return (
+      <div className="product-detail-page">
+        <div className="container">
+          <div className="not-found" style={{ padding: '80px 20px', textAlign: 'center' }}>
+            <Loader size={40} className="spinning" />
+            <p>جاري تحميل المنتج...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (

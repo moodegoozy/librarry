@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Filter, ChevronDown, Grid, List } from "lucide-react";
+import { Filter, ChevronDown, Grid, List, Loader } from "lucide-react";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import { useStore } from "../../store/useStore";
 import "./Products.css";
 
 const Products: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { products, categories, searchQuery } = useStore();
+  const { products, categories, searchQuery, productsLoaded } = useStore();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
@@ -154,7 +154,12 @@ const Products: React.FC = () => {
         )}
 
         {/* Products Grid */}
-        {filteredProducts.length > 0 ? (
+        {!productsLoaded ? (
+          <div className="no-products" style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <Loader size={36} className="spinning" />
+            <p>جاري تحميل المنتجات...</p>
+          </div>
+        ) : filteredProducts.length > 0 ? (
           <div className={`products-grid ${viewMode}`}>
             {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />

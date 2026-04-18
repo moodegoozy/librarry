@@ -647,6 +647,29 @@
   font-size: 1.75rem;
 }
 
+.order-id-display {
+  font-size: 1rem;
+  color: var(--dark);
+  margin-bottom: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-light, #f8fafc);
+  border-radius: 8px;
+  display: inline-block;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.order-id-display strong {
+  color: var(--primary);
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+.item-variants-text {
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+
 .order-success p {
   color: var(--gray);
   margin-bottom: 2rem;

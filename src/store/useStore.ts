@@ -24,6 +24,7 @@ interface StoreState {
   // Products (من Firestore)
   products: Product[];
   setProducts: (products: Product[]) => void;
+  productsLoaded: boolean;
 
   // Wishlist (المفضلة)
   wishlist: string[];
@@ -134,7 +135,8 @@ export const useStore = create<StoreState>()(
 
       // Products
       products: [],
-      setProducts: (products) => set({ products }),
+      setProducts: (products) => set({ products, productsLoaded: true }),
+      productsLoaded: false,
 
       // Wishlist
       wishlist: [],

@@ -526,6 +526,10 @@
     flex-direction: column;
   }
 
+  .cj-search-bar .search-input-wrapper {
+    min-width: 0;
+  }
+
   .cj-modal {
     padding: 20px;
   }

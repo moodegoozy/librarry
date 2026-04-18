@@ -44,10 +44,12 @@ const Checkout: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [tamaraProcessing, setTamaraProcessing] = useState(false);
   const [paidWithTamara, setPaidWithTamara] = useState(false);
   const [tabbyProcessing, setTabbyProcessing] = useState(false);
   const [paidWithTabby, setPaidWithTabby] = useState(false);
+  const isSubmitting = loading || tamaraProcessing || tabbyProcessing;
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>({
     freeShippingThreshold: 200,
     defaultShippingCost: 25,
@@ -147,7 +149,7 @@ const Checkout: React.FC = () => {
             paidAt: new Date(),
           };
 
-          await addOrder(orderData);
+          const orderId = await addOrder(orderData);
 
           // تخفيض المخزون
           const cartItems = orderDataFromStorage.items || [];
@@ -158,6 +160,7 @@ const Checkout: React.FC = () => {
           // تنظيف البيانات المحفوظة
           localStorage.removeItem(`tamara_order_${pendingOrder}`);
 
+          setCompletedOrderId(orderId);
           setOrderPlaced(true);
           setPaidWithTamara(true);
           clearCart();
@@ -214,7 +217,7 @@ const Checkout: React.FC = () => {
             paidAt: new Date(),
           };
 
-          await addOrder(orderData);
+          const orderId = await addOrder(orderData);
 
           // تخفيض المخزون
           const cartItems = orderDataFromStorage.items || [];
@@ -225,6 +228,7 @@ const Checkout: React.FC = () => {
           // تنظيف البيانات المحفوظة
           localStorage.removeItem(`tabby_order_${pendingOrder}`);
 
+          setCompletedOrderId(orderId);
           setOrderPlaced(true);
           setPaidWithTabby(true);
           clearCart();
@@ -247,12 +251,19 @@ const Checkout: React.FC = () => {
     handleTabbyCallback();
   }, [searchParams, user, clearCart, navigate]);
 
+  // التحقق من تسجيل الدخول
+  useEffect(() => {
+    if (!user && !searchParams.get("tamara_order_id") && !searchParams.get("payment_id")) {
+      navigate("/login", { state: { from: "/checkout" } });
+    }
+  }, [user, navigate, searchParams]);
+
   // التحقق من السلة
   useEffect(() => {
-    if (cart.length === 0 && !orderPlaced) {
+    if (cart.length === 0 && !orderPlaced && !tamaraProcessing && !tabbyProcessing && !loading) {
       navigate("/cart");
     }
-  }, [cart, navigate, orderPlaced]);
+  }, [cart, navigate, orderPlaced, tamaraProcessing, tabbyProcessing, loading]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ar-SA", {
@@ -297,6 +308,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
+    if (isSubmitting) return;
     setTamaraProcessing(true);
 
     try {
@@ -419,6 +431,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
+    if (isSubmitting) return;
     setTabbyProcessing(true);
 
     try {
@@ -555,6 +568,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
+    if (isSubmitting) return;
     setLoading(true);
 
     try {
@@ -611,13 +625,14 @@ const Checkout: React.FC = () => {
         updatedAt: new Date(),
       };
 
-      await addOrder(orderData);
+      const orderId = await addOrder(orderData);
 
       // تخفيض المخزون ذرياً بعد إتمام الطلب
       for (const item of cart) {
         await decrementStock(item.product.id, item.quantity);
       }
 
+      setCompletedOrderId(orderId);
       setOrderPlaced(true);
       clearCart();
       setStep(3);
@@ -704,13 +719,14 @@ const Checkout: React.FC = () => {
         updatedAt: new Date(),
       };
 
-      await addOrder(orderData);
+      const orderId = await addOrder(orderData);
 
       // تخفيض المخزون
       for (const item of cart) {
         await decrementStock(item.product.id, item.quantity);
       }
 
+      setCompletedOrderId(orderId);
       setOrderPlaced(true);
       clearCart();
       setStep(3);
@@ -1158,7 +1174,7 @@ const Checkout: React.FC = () => {
                     <button
                       className="btn btn-outline"
                       onClick={() => setStep(1)}
-                      disabled={cardProcessing || tamaraProcessing || tabbyProcessing}
+                      disabled={isSubmitting || cardProcessing}
                     >
                       <ArrowRight size={18} />
                       السابق
@@ -1167,7 +1183,7 @@ const Checkout: React.FC = () => {
                       <button
                         className="btn btn-primary"
                         onClick={handleSubmitOrder}
-                        disabled={loading}
+                        disabled={isSubmitting}
                       >
                         {loading ? (
                           <>
@@ -1187,8 +1203,8 @@ const Checkout: React.FC = () => {
               <div className="order-summary">
                 <h3>ملخص الطلب</h3>
                 <div className="summary-items">
-                  {cart.map((item) => (
-                    <div key={item.product.id} className="summary-item">
+                  {cart.map((item, index) => (
+                    <div key={`${item.product.id}-${index}`} className="summary-item">
                       <img
                         src={
                           item.product.images?.[0] ||
@@ -1198,6 +1214,11 @@ const Checkout: React.FC = () => {
                       />
                       <div className="item-info">
                         <span className="item-name">{item.product.name}</span>
+                        {item.selectedVariants && Object.keys(item.selectedVariants).length > 0 && (
+                          <span className="item-variants-text">
+                            {Object.entries(item.selectedVariants).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                          </span>
+                        )}
                         <span className="item-qty">
                           الكمية: {item.quantity}
                         </span>
@@ -1241,6 +1262,9 @@ const Checkout: React.FC = () => {
                 <Check size={60} />
               </div>
               <h1>تم استلام طلبك بنجاح!</h1>
+              {completedOrderId && (
+                <p className="order-id-display">رقم الطلب: <strong>{completedOrderId}</strong></p>
+              )}
               {paidWithTamara && (
                 <div className="payment-success-badge">
                   <img 

@@ -125,3 +125,23 @@
   align-items: center;
   gap: 6px;
 }
+
+@media (max-width: 768px) {
+  .message-item {
+    padding: 12px 14px;
+  }
+
+  .message-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .message-preview {
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

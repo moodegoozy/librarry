@@ -49,8 +49,12 @@
 .table-container {
   background: white;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.table-container .data-table {
+  min-width: 600px;
 }
 
 .data-table {

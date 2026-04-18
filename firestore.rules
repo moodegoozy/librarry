@@ -40,20 +40,40 @@ service cloud.firestore {
     // Orders - users can read/create their own, admin can read/update all
     match /orders/{orderId} {
       allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'customer', 'email', 'phone', 'items', 'total', 'status'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.total > 0
+        && request.resource.data.items.size() > 0;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Settings - anyone can read, only admin can write
-    match /settings/{settingId} {
+    // Settings - store settings are public, sensitive settings are admin-only
+    match /settings/store {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Contact Messages - anyone can create, only admin can read/update/delete
+    // Sensitive settings (CJ API keys, email SMTP, etc.) - admin only
+    match /settings/{settingId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Contact Messages - anyone authenticated can create, only admin can read/update/delete
     match /contactMessages/{messageId} {
-      allow create: if true;
+      allow create: if true
+        && request.resource.data.keys().hasAll(['name', 'email', 'subject', 'message', 'read'])
+        && request.resource.data.read == false
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.message is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 5000;
       allow read, update, delete: if isAdmin();
     }
 
