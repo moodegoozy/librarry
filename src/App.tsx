@@ -14,39 +14,113 @@ import { useStore } from "./store/useStore";
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 
+const lazyWithRetry = <T extends React.ComponentType<any>>(
+  importer: () => Promise<{ default: T }>,
+  chunkKey: string,
+) =>
+  lazy(async () => {
+    const storageKey = `lazy-retry:${chunkKey}`;
+
+    try {
+      const module = await importer();
+      sessionStorage.removeItem(storageKey);
+      return module;
+    } catch (error) {
+      const alreadyRetried = sessionStorage.getItem(storageKey) === "1";
+
+      if (!alreadyRetried) {
+        sessionStorage.setItem(storageKey, "1");
+        window.location.reload();
+      }
+
+      throw error;
+    }
+  });
+
 // Lazy loaded components
-const DashboardLayout = lazy(() => import("./components/DashboardLayout/DashboardLayout"));
+const DashboardLayout = lazyWithRetry(
+  () => import("./components/DashboardLayout/DashboardLayout"),
+  "DashboardLayout",
+);
 
 // Store Pages - Lazy Loaded
-const Home = lazy(() => import("./pages/Home/Home"));
-const Cart = lazy(() => import("./pages/Cart/Cart"));
-const Checkout = lazy(() => import("./pages/Checkout/Checkout"));
-const Login = lazy(() => import("./pages/Login/Login"));
-const Register = lazy(() => import("./pages/Register/Register"));
-const ProductsPage = lazy(() => import("./pages/Products/Products"));
-const ProductDetail = lazy(() => import("./pages/ProductDetail/ProductDetail"));
-const Account = lazy(() => import("./pages/Account/Account"));
-const Contact = lazy(() => import("./pages/Contact/Contact"));
-const About = lazy(() => import("./pages/About/About"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword/ForgotPassword"));
-const NotFound = lazy(() => import("./pages/NotFound/NotFound"));
-const Privacy = lazy(() => import("./pages/Legal/Privacy"));
-const Shipping = lazy(() => import("./pages/Legal/Shipping"));
-const Returns = lazy(() => import("./pages/Legal/Returns"));
-const FAQ = lazy(() => import("./pages/Legal/FAQ"));
+const Home = lazyWithRetry(() => import("./pages/Home/Home"), "Home");
+const Cart = lazyWithRetry(() => import("./pages/Cart/Cart"), "Cart");
+const Checkout = lazyWithRetry(
+  () => import("./pages/Checkout/Checkout"),
+  "Checkout",
+);
+const Login = lazyWithRetry(() => import("./pages/Login/Login"), "Login");
+const Register = lazyWithRetry(
+  () => import("./pages/Register/Register"),
+  "Register",
+);
+const ProductsPage = lazyWithRetry(
+  () => import("./pages/Products/Products"),
+  "ProductsPage",
+);
+const ProductDetail = lazyWithRetry(
+  () => import("./pages/ProductDetail/ProductDetail"),
+  "ProductDetail",
+);
+const Account = lazyWithRetry(() => import("./pages/Account/Account"), "Account");
+const Contact = lazyWithRetry(() => import("./pages/Contact/Contact"), "Contact");
+const About = lazyWithRetry(() => import("./pages/About/About"), "About");
+const ForgotPassword = lazyWithRetry(
+  () => import("./pages/ForgotPassword/ForgotPassword"),
+  "ForgotPassword",
+);
+const NotFound = lazyWithRetry(
+  () => import("./pages/NotFound/NotFound"),
+  "NotFound",
+);
+const Privacy = lazyWithRetry(() => import("./pages/Legal/Privacy"), "Privacy");
+const Shipping = lazyWithRetry(() => import("./pages/Legal/Shipping"), "Shipping");
+const Returns = lazyWithRetry(() => import("./pages/Legal/Returns"), "Returns");
+const FAQ = lazyWithRetry(() => import("./pages/Legal/FAQ"), "FAQ");
 
 // Dashboard Pages - Lazy Loaded
-const DashboardHome = lazy(() => import("./pages/Dashboard/DashboardHome"));
-const Products = lazy(() => import("./pages/Dashboard/Products"));
-const Categories = lazy(() => import("./pages/Dashboard/Categories"));
-const Orders = lazy(() => import("./pages/Dashboard/Orders"));
-const Customers = lazy(() => import("./pages/Dashboard/Customers"));
-const Analytics = lazy(() => import("./pages/Dashboard/Analytics"));
-const Settings = lazy(() => import("./pages/Dashboard/Settings"));
-const Messages = lazy(() => import("./pages/Dashboard/Messages"));
-const CJProducts = lazy(() => import("./pages/Dashboard/CJProducts"));
-const CJOrders = lazy(() => import("./pages/Dashboard/CJOrders"));
-const CJSettings = lazy(() => import("./pages/Dashboard/CJSettings"));
+const DashboardHome = lazyWithRetry(
+  () => import("./pages/Dashboard/DashboardHome"),
+  "DashboardHome",
+);
+const Products = lazyWithRetry(
+  () => import("./pages/Dashboard/Products"),
+  "DashboardProducts",
+);
+const Categories = lazyWithRetry(
+  () => import("./pages/Dashboard/Categories"),
+  "Categories",
+);
+const Orders = lazyWithRetry(() => import("./pages/Dashboard/Orders"), "Orders");
+const Customers = lazyWithRetry(
+  () => import("./pages/Dashboard/Customers"),
+  "Customers",
+);
+const Analytics = lazyWithRetry(
+  () => import("./pages/Dashboard/Analytics"),
+  "Analytics",
+);
+const Settings = lazyWithRetry(
+  () => import("./pages/Dashboard/Settings"),
+  "Settings",
+);
+const Messages = lazyWithRetry(
+  () => import("./pages/Dashboard/Messages"),
+  "Messages",
+);
+const CJProducts = lazyWithRetry(
+  () => import("./pages/Dashboard/CJProducts"),
+  "CJProducts",
+);
+const CJOrders = lazyWithRetry(
+  () => import("./pages/Dashboard/CJOrders"),
+  "CJOrders",
+);
+const CJSettings = lazyWithRetry(
+  () => import("./pages/Dashboard/CJSettings"),
+  "CJSettings",
+);
 
 // Styles
 import "./styles/globals.css";
