@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Phone } from 'lucide-react';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useStore } from '../../store/useStore';
 import { getUserById, createOrUpdateUser } from '../../services/firestore';
+import PhoneAuth from '../../components/PhoneAuth/PhoneAuth';
 import './Login.css';
 
 const Login: React.FC = () => {
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -128,6 +130,38 @@ const Login: React.FC = () => {
             <p>مرحباً بك مجدداً! سجل دخولك للمتابعة</p>
           </div>
 
+          <div className="auth-method-tabs">
+            <button
+              type="button"
+              className={`auth-tab ${authMethod === 'email' ? 'active' : ''}`}
+              onClick={() => { setAuthMethod('email'); setError(''); }}
+            >
+              <Mail size={18} />
+              البريد الإلكتروني
+            </button>
+            <button
+              type="button"
+              className={`auth-tab ${authMethod === 'phone' ? 'active' : ''}`}
+              onClick={() => { setAuthMethod('phone'); setError(''); }}
+            >
+              <Phone size={18} />
+              رقم الجوال
+            </button>
+          </div>
+
+          {authMethod === 'phone' ? (
+            <PhoneAuth
+              mode="login"
+              onSuccess={(userData) => {
+                if (userData?.role === 'admin') {
+                  navigate('/dashboard');
+                } else {
+                  navigate('/');
+                }
+              }}
+            />
+          ) : (
+          <>
           {error && (
             <div className="alert alert-error">
               {error}
@@ -206,6 +240,8 @@ const Login: React.FC = () => {
               تسجيل بحساب Google
             </button>
           </div>
+
+          </>)}
 
           <div className="login-footer">
             <p>

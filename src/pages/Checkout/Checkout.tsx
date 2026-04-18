@@ -10,18 +10,19 @@ import {
   Loader,
   AlertCircle,
   Clock,
+
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import {
   addOrder,
   getSettings,
-  decrementStock,
 } from "../../services/firestore";
 import { createTamaraCheckout, authorizeTamaraOrder } from "../../services/tamara";
 import { createTabbyCheckout, captureTabbyPayment } from "../../services/tabby";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 import PayPalCardForm from "../../components/PayPalCardForm/PayPalCardForm";
+import PhoneAuth from "../../components/PhoneAuth/PhoneAuth";
 import "./Checkout.css";
 
 interface ShippingSettings {
@@ -151,12 +152,6 @@ const Checkout: React.FC = () => {
 
           const orderId = await addOrder(orderData);
 
-          // تخفيض المخزون
-          const cartItems = orderDataFromStorage.items || [];
-          for (const item of cartItems) {
-            await decrementStock(item.productId, item.quantity);
-          }
-
           // تنظيف البيانات المحفوظة
           localStorage.removeItem(`tamara_order_${pendingOrder}`);
 
@@ -219,12 +214,6 @@ const Checkout: React.FC = () => {
 
           const orderId = await addOrder(orderData);
 
-          // تخفيض المخزون
-          const cartItems = orderDataFromStorage.items || [];
-          for (const item of cartItems) {
-            await decrementStock(item.productId, item.quantity);
-          }
-
           // تنظيف البيانات المحفوظة
           localStorage.removeItem(`tabby_order_${pendingOrder}`);
 
@@ -251,12 +240,8 @@ const Checkout: React.FC = () => {
     handleTabbyCallback();
   }, [searchParams, user, clearCart, navigate]);
 
-  // التحقق من تسجيل الدخول
-  useEffect(() => {
-    if (!user && !searchParams.get("tamara_order_id") && !searchParams.get("payment_id")) {
-      navigate("/login", { state: { from: "/checkout" } });
-    }
-  }, [user, navigate, searchParams]);
+  // التحقق من تسجيل الدخول — لا نُحوّل إذا زائر، نعرض له OTP
+  const [showGuestAuth, setShowGuestAuth] = useState(false);
 
   // التحقق من السلة
   useEffect(() => {
@@ -627,11 +612,6 @@ const Checkout: React.FC = () => {
 
       const orderId = await addOrder(orderData);
 
-      // تخفيض المخزون ذرياً بعد إتمام الطلب
-      for (const item of cart) {
-        await decrementStock(item.product.id, item.quantity);
-      }
-
       setCompletedOrderId(orderId);
       setOrderPlaced(true);
       clearCart();
@@ -721,11 +701,6 @@ const Checkout: React.FC = () => {
 
       const orderId = await addOrder(orderData);
 
-      // تخفيض المخزون
-      for (const item of cart) {
-        await decrementStock(item.product.id, item.quantity);
-      }
-
       setCompletedOrderId(orderId);
       setOrderPlaced(true);
       clearCart();
@@ -806,6 +781,25 @@ const Checkout: React.FC = () => {
 
           {step < 3 && (
             <div className="checkout-content">
+              {/* تسجيل سريع للزائر */}
+              {!user && !showGuestAuth && (
+                <div className="guest-login-prompt">
+                  <p>📱 سجّل برقم جوالك لإتمام الطلب بسهولة</p>
+                  <button onClick={() => setShowGuestAuth(true)}>
+                    تسجيل سريع
+                  </button>
+                </div>
+              )}
+
+              {!user && showGuestAuth && (
+                <div className="checkout-phone-auth">
+                  <PhoneAuth
+                    mode="checkout"
+                    onSuccess={() => setShowGuestAuth(false)}
+                  />
+                </div>
+              )}
+
               {/* الخطوة 1: العنوان */}
               {step === 1 && (
                 <div className="checkout-form">

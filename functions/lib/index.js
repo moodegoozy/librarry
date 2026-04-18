@@ -248,6 +248,22 @@ exports.onOrderCreated = functions.firestore
     var _a, _b;
     const order = snap.data();
     const orderId = context.params.orderId;
+    // خصم المخزون يتم من السيرفر لتجاوز قيود صلاحيات العميل
+    try {
+        const db = admin.firestore();
+        const batch = db.batch();
+        for (const item of order.items || []) {
+            const productRef = db.doc(`products/${item.productId}`);
+            batch.update(productRef, {
+                stock: admin.firestore.FieldValue.increment(-(item.quantity || 0)),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        await batch.commit();
+    }
+    catch (stockError) {
+        console.error(`Error decrementing stock for order ${orderId}:`, stockError);
+    }
     // ===== 1. إرسال إيميل تأكيد الطلب للعميل =====
     try {
         const emailResult = await (0, emailService_1.sendOrderConfirmationEmail)({
