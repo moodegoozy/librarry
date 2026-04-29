@@ -166,6 +166,7 @@ async function internalFetch(
     method: options.method || "GET",
     headers: {
       "x-access-token": token,
+      "x-api-version": "v1",
       "Content-Type": "application/json",
       Accept: "application/json",
     },
