@@ -11,7 +11,6 @@ import "./YakkyofySettings.css";
 type ConnectionStatus = "idle" | "testing" | "connected" | "disconnected";
 
 const DEFAULT_SETTINGS: YakkyofySettings = {
-  email: "",
   apiKey: "40f39e7b-fe1c-4c44-b0c7-8e3300ab3784",
   defaultMarkup: 30,
   usdToSar: 3.75,
@@ -52,10 +51,6 @@ const YakkyofySettings: React.FC = () => {
   }, []);
 
   const handleSave = async () => {
-    if (!settings.email?.trim()) {
-      showToast("يجب إدخال البريد الإلكتروني", "error");
-      return;
-    }
     if (!settings.apiKey?.trim()) {
       showToast("يجب إدخال مفتاح Yakkyofy API", "error");
       return;
@@ -73,10 +68,6 @@ const YakkyofySettings: React.FC = () => {
   };
 
   const handleTestConnection = async () => {
-    if (!settings.email?.trim()) {
-      showToast("يجب إدخال البريد الإلكتروني أولاً", "error");
-      return;
-    }
     if (!settings.apiKey?.trim()) {
       showToast("يجب إدخال مفتاح API أولاً", "error");
       return;
@@ -84,7 +75,7 @@ const YakkyofySettings: React.FC = () => {
     setTesting(true);
     setConnectionStatus("testing");
     try {
-      const result = await testYakkyofyConnection(settings.email, settings.apiKey);
+      const result = await testYakkyofyConnection(settings.apiKey);
       if (result.success) {
         setConnectionStatus("connected");
         showToast("تم الاتصال بـ Yakkyofy بنجاح! ✓");
@@ -134,23 +125,11 @@ const YakkyofySettings: React.FC = () => {
             الاتصال بـ Yakkyofy
           </div>
           <p className="card-desc">
-            أدخل بريدك الإلكتروني ومفتاح API من لوحة تحكم Yakkyofy لتسجيل الدخول تلقائياً
+            أدخل مفتاح API الخاص بك من لوحة تحكم Yakkyofy لربطه بمتجرك
           </p>
 
           <div className="form-group">
-            <label>البريد الإلكتروني</label>
-            <input
-              type="email"
-              value={settings.email}
-              onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-              placeholder="example@email.com"
-              dir="ltr"
-            />
-            <span className="form-hint">البريد المسجّل في حساب Yakkyofy</span>
-          </div>
-
-          <div className="form-group">
-            <label>مفتاح API (كلمة المرور)</label>
+            <label>مفتاح API</label>
             <input
               type="text"
               value={settings.apiKey}
@@ -158,7 +137,7 @@ const YakkyofySettings: React.FC = () => {
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               dir="ltr"
             />
-            <span className="form-hint">يمكنك إيجاده في إعدادات حسابك على Yakkyofy</span>
+            <span className="form-hint">اذهب إلى app.yakkyofy.com ← Manage Stores لإيجاد أو توليد مفتاح API</span>
           </div>
 
           <div className="connection-status-row">
@@ -178,7 +157,7 @@ const YakkyofySettings: React.FC = () => {
             <button
               className="btn-test"
               onClick={handleTestConnection}
-              disabled={testing || !settings.apiKey?.trim() || !settings.email?.trim()}
+              disabled={testing || !settings.apiKey?.trim()}
             >
               {testing ? <Loader size={16} className="spinner" /> : <RefreshCw size={16} />}
               اختبار الاتصال

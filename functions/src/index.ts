@@ -450,16 +450,18 @@ export const cjSyncOrderStatuses = functions.https.onCall(
 );
 
 // ==================== Yakkyofy Dropshipping ====================
+// ملاحظة: Yakkyofy REST API يدعم فقط Orders (إنشاء + جلب)
+// توثيق: https://developers.yakkyofy.com
+// المصادقة: X-API-Key header
 
 // اختبار الاتصال بـ Yakkyofy
 export const yakkyofyTestConnection = functions.https.onCall(
   async (data, context) => {
     await verifyAdmin(context.auth ?? undefined);
-    const { email, apiKey } = data;
-    if (!email) throw new functions.https.HttpsError("invalid-argument", "البريد الإلكتروني مطلوب");
+    const { apiKey } = data;
     if (!apiKey) throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
     try {
-      return await yakkyofy.testConnection(email, apiKey);
+      return await yakkyofy.testConnection(apiKey);
     } catch (error) {
       wrapError(error);
     }
@@ -486,63 +488,6 @@ export const yakkyofySaveSettings = functions.https.onCall(
   },
 );
 
-// البحث عن منتجات Yakkyofy
-export const yakkyofySearchProducts = functions.https.onCall(
-  async (data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    try {
-      return await yakkyofy.searchProducts({
-        name: data.keyword,
-        category: data.category,
-        page: data.page || 1,
-        per_page: data.per_page || 20,
-      });
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// تفاصيل منتج Yakkyofy
-export const yakkyofyGetProductDetail = functions.https.onCall(
-  async (data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    if (!data.productId)
-      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
-    try {
-      return await yakkyofy.getProductDetail(data.productId);
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// متغيرات منتج Yakkyofy
-export const yakkyofyGetProductVariants = functions.https.onCall(
-  async (data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    if (!data.productId)
-      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
-    try {
-      return await yakkyofy.getProductVariants(data.productId);
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// تصنيفات Yakkyofy
-export const yakkyofyGetCategories = functions.https.onCall(
-  async (_data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    try {
-      return await yakkyofy.getCategories();
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
 // إنشاء طلب Yakkyofy
 export const yakkyofyCreateOrder = functions.https.onCall(
   async (data, context) => {
@@ -555,14 +500,14 @@ export const yakkyofyCreateOrder = functions.https.onCall(
 
       // تحديث الطلب في Firestore مع بيانات Yakkyofy
       if (result && firestoreOrderId) {
-        const orderId = result.id || result.order_id || result.order?.id;
+        const yakId = result._id || result.id || "";
         await admin
           .firestore()
           .doc(`orders/${firestoreOrderId}`)
           .update({
             isYakkyofyOrder: true,
-            yakkyofyOrderId: String(orderId || ""),
-            yakkyofyStatus: "created",
+            yakkyofyOrderId: String(yakId),
+            yakkyofyStatus: result.status || "created",
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
       }
@@ -582,48 +527,6 @@ export const yakkyofyGetOrder = functions.https.onCall(
       throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
     try {
       return await yakkyofy.getOrder(data.orderId);
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// قائمة طلبات Yakkyofy
-export const yakkyofyListOrders = functions.https.onCall(
-  async (data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    try {
-      return await yakkyofy.listOrders({
-        page: data.page || 1,
-        per_page: data.per_page || 20,
-        status: data.status,
-      });
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// تتبع شحنة Yakkyofy
-export const yakkyofyGetTracking = functions.https.onCall(
-  async (data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    if (!data.orderId)
-      throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
-    try {
-      return await yakkyofy.getTracking(data.orderId);
-    } catch (error) {
-      wrapError(error);
-    }
-  },
-);
-
-// رصيد حساب Yakkyofy
-export const yakkyofyGetBalance = functions.https.onCall(
-  async (_data, context) => {
-    await verifyAdmin(context.auth ?? undefined);
-    try {
-      return await yakkyofy.getBalance();
     } catch (error) {
       wrapError(error);
     }
@@ -650,22 +553,29 @@ export const yakkyofySyncOrderStatuses = functions.https.onCall(
       try {
         const yakResult: any = await yakkyofy.getOrder(order.yakkyofyOrderId);
         if (yakResult) {
-          const status = yakResult.status || yakResult.order_status || "";
+          const status = yakResult.status || "";
           const updates: Record<string, unknown> = {
             yakkyofyStatus: status,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
 
-          if (yakResult.tracking_number || yakResult.trackingNumber) {
-            updates.trackingNumber = yakResult.tracking_number || yakResult.trackingNumber;
+          // استخراج رقم التتبع من items
+          const items: any[] = yakResult.items || [];
+          const trackingNumbers = items
+            .map((i: any) => i.trackingNumber || i.lastMileTracking)
+            .filter(Boolean);
+          if (trackingNumbers.length > 0) {
+            updates.trackingNumber = trackingNumbers[0];
           }
 
           const statusMap: Record<string, string> = {
             pending: "processing",
-            processing: "processing",
+            confirmed: "processing",
+            forwarded: "processing",
             shipped: "shipped",
             delivered: "delivered",
             cancelled: "cancelled",
+            returned: "cancelled",
           };
 
           const mappedStatus = statusMap[status?.toLowerCase()];
