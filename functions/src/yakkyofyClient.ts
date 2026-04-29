@@ -7,6 +7,7 @@ import * as admin from "firebase-admin";
 
 const YAKKYOFY_REST_URL = "https://rest.yakkyofy.com";
 const YAKKYOFY_INTERNAL_URL = "https://api.yakkyofy.com/api";
+const YAKKYOFY_V2_URL = "https://apiv2.yakkyofy.com";
 
 type YakkyofySettings = {
   apiKey?: string;
@@ -188,6 +189,50 @@ async function internalFetch(
   return data;
 }
 
+async function internalV2Fetch(
+  path: string,
+  options: {
+    method?: string;
+    body?: object;
+    params?: Record<string, string | number | boolean | undefined>;
+  } = {},
+): Promise<any> {
+  const token = await getInternalToken();
+  let url = `${YAKKYOFY_V2_URL}${path}`;
+
+  if (options.params) {
+    const query = Object.entries(options.params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    if (query) url += `?${query}`;
+  }
+
+  const response = await fetch(url, {
+    method: options.method || "GET",
+    headers: {
+      "x-access-token": token,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+  });
+
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Yakkyofy V2 API: استجابة غير متوقعة (${response.status})`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Yakkyofy V2 API error (${response.status}): ${data?.message || text.substring(0, 160)}`);
+  }
+
+  return data;
+}
+
 function extractProductList(payload: any): any[] {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
@@ -214,6 +259,40 @@ function extractProductList(payload: any): any[] {
   }
 
   return [];
+}
+
+function normalizeProduct(item: any): any {
+  const images =
+    (Array.isArray(item?.images) && item.images) ||
+    (Array.isArray(item?.pictures) && item.pictures) ||
+    (item?.mainImage ? [item.mainImage] : []) ||
+    (item?.image ? [item.image] : []);
+
+  const variantsRaw = item?.variants || item?.skus || item?.skuList || [];
+  const variants = Array.isArray(variantsRaw)
+    ? variantsRaw.map((v: any) => ({
+      id: v?.id || v?._id || v?.skuId || v?.sku || "",
+      name: v?.name || v?.title || v?.sku || "",
+      sku: v?.sku || v?.code || v?.skuId || "",
+      price: Number(v?.price || v?.salePrice || v?.offerPrice || 0) || undefined,
+      image: v?.image || v?.mainImage || undefined,
+    }))
+    : [];
+
+  return {
+    id: item?.id || item?._id || item?.productId || item?.offerId || item?.pid || "",
+    name: item?.name || item?.title || item?.productName || item?.subject || "منتج",
+    image: item?.image || item?.mainImage || item?.cover || item?.thumb || images?.[0],
+    images,
+    price: Number(item?.price || item?.minPrice || item?.offerPrice || item?.wholesalePrice || 0) || 0,
+    sale_price: Number(item?.sale_price || item?.salePrice || item?.price || item?.minPrice || 0) || 0,
+    category: item?.category || item?.categoryName || item?.catName || "",
+    sku: item?.sku || item?.code || "",
+    description: item?.description || item?.desc || item?.title || "",
+    variants,
+    stock: item?.stock ?? item?.quantity ?? undefined,
+    raw: item,
+  };
 }
 
 // ==================== اختبار الاتصال ====================
@@ -273,6 +352,29 @@ export async function searchProducts(params: {
   page?: number;
   per_page?: number;
 }): Promise<any> {
+  // 1) كتالوج Yakkyofy/1688 عبر V2 (أقرب لما يظهر داخل المنصة)
+  try {
+    const v2 = await internalV2Fetch("/1688-catalogue", {
+      params: {
+        page: params.page || 1,
+        perPage: params.per_page || 20,
+        category: params.category,
+        keyword: params.keyword,
+      },
+    });
+
+    const listRaw = extractProductList(v2);
+    const list = listRaw.map(normalizeProduct);
+    return {
+      data: list,
+      total: v2?.pagination?.total || v2?.total || list.length,
+      raw: v2,
+      source: "v2-1688-catalogue",
+    };
+  } catch {
+    // fallback to V1 internal endpoints
+  }
+
   const commonParams = {
     page: params.page || 1,
     per_page: params.per_page || 20,
@@ -300,17 +402,19 @@ export async function searchProducts(params: {
       const res = await attempt();
       const list = extractProductList(res);
       if (list.length > 0) {
+        const normalized = list.map(normalizeProduct);
         return {
-          data: list,
-          total: res?.total || res?.meta?.total || res?.count || list.length,
+          data: normalized,
+          total: res?.total || res?.meta?.total || res?.count || normalized.length,
           raw: res,
         };
       }
       // إذا لم نجد عناصر، نرجع أول رد ناجح بدلاً من رمي خطأ
       if (res) {
+        const normalized = extractProductList(res).map(normalizeProduct);
         return {
-          data: extractProductList(res),
-          total: res?.total || res?.meta?.total || res?.count || 0,
+          data: normalized,
+          total: res?.total || res?.meta?.total || res?.count || normalized.length || 0,
           raw: res,
         };
       }
@@ -324,9 +428,19 @@ export async function searchProducts(params: {
 
 export async function getProductDetail(productId: string): Promise<any> {
   try {
-    return await internalFetch(`/products/${productId}`);
+    const v2 = await internalV2Fetch(`/1688-catalogue/${productId}`);
+    const base = v2?.data || v2;
+    return normalizeProduct(base);
   } catch {
-    return await internalFetch(`/products/edit/${productId}`);
+    // fallback to V1
+  }
+
+  try {
+    const v1 = await internalFetch(`/products/${productId}`);
+    return normalizeProduct(v1?.data || v1);
+  } catch {
+    const v1edit = await internalFetch(`/products/edit/${productId}`);
+    return normalizeProduct(v1edit?.data || v1edit);
   }
 }
 
