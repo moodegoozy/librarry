@@ -43,7 +43,9 @@ async function yakkyofyFetch(
   const response = await fetch(url, {
     method: options.method || "GET",
     headers: {
+      // نجرب صيغتين للمصادقة: Bearer + X-Api-Key
       Authorization: `Bearer ${apiKey}`,
+      "X-Api-Key": apiKey,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -55,8 +57,19 @@ async function yakkyofyFetch(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(
-      `Yakkyofy API error ${response.status}: ${text || response.statusText}`,
+      `Yakkyofy API error ${response.status}: ${text.substring(0, 300) || response.statusText}`,
     );
+  }
+
+  // التحقق من أن الاستجابة JSON وليست HTML قبل التحويل
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("json")) {
+    const preview = (await response.text()).substring(0, 300);
+    const isHtml = preview.toLowerCase().includes("<!doctype") || preview.toLowerCase().includes("<html");
+    const hint = isHtml
+      ? "الـ API يُعيد صفحة HTML بدل JSON - تحقق من صحة مفتاح API في إعدادات Yakkyofy."
+      : `نوع الاستجابة غير متوقع (${contentType}):`;
+    throw new Error(`${hint} ${preview}`);
   }
 
   return response.json();
@@ -71,18 +84,28 @@ export async function testConnection(
       method: "GET",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "X-Api-Key": apiKey,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
     });
 
-    if (response.ok) {
-      return { success: true, message: "تم الاتصال بـ Yakkyofy بنجاح" };
-    } else {
-      const text = await response.text().catch(() => "");
+    const contentType = response.headers.get("content-type") || "";
+    const bodyText = await response.text();
+    const isJson = contentType.includes("json");
+    const isHtml = bodyText.toLowerCase().includes("<!doctype") || bodyText.toLowerCase().includes("<html");
+
+    if (response.ok && isJson) {
+      return { success: true, message: "تم الاتصال بـ Yakkyofy بنجاح ✓" };
+    } else if (isHtml) {
       return {
         success: false,
-        message: `فشل الاتصال (${response.status}): ${text || response.statusText}`,
+        message: `الـ API أعاد صفحة HTML (${response.status}) - تأكد من صحة مفتاح API. يتطلب الاشتراك في خطة Yakkyofy B2B.`,
+      };
+    } else {
+      return {
+        success: false,
+        message: `فشل الاتصال (${response.status}): ${bodyText.substring(0, 200)}`,
       };
     }
   } catch (error) {

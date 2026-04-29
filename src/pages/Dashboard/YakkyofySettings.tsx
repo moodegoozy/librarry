@@ -37,6 +37,9 @@ const YakkyofySettings: React.FC = () => {
         if (saved) {
           setSettings({ ...DEFAULT_SETTINGS, ...saved });
           if (saved.apiKey) setConnectionStatus("connected");
+        } else {
+          // حفظ الإعدادات الافتراضية تلقائياً في Firestore عند أول استخدام
+          await saveYakkyofySettings(DEFAULT_SETTINGS);
         }
       } catch (error) {
         console.error("Error loading Yakkyofy settings:", error);
