@@ -8,6 +8,7 @@ import * as admin from "firebase-admin";
 const YAKKYOFY_REST_URL = "https://rest.yakkyofy.com";
 const YAKKYOFY_INTERNAL_URL = "https://api.yakkyofy.com/api";
 const YAKKYOFY_V2_URL = "https://apiv2.yakkyofy.com";
+const YAKKYOFY_MEDIA_FALLBACK = "https://yakkyofy-media.dokku.yakkyo.com";
 
 type YakkyofySettings = {
   apiKey?: string;
@@ -262,11 +263,54 @@ function extractProductList(payload: any): any[] {
 }
 
 function normalizeProduct(item: any): any {
-  const images =
-    (Array.isArray(item?.images) && item.images) ||
-    (Array.isArray(item?.pictures) && item.pictures) ||
-    (item?.mainImage ? [item.mainImage] : []) ||
-    (item?.image ? [item.image] : []);
+  const normalizeImageUrl = (value: any): string => {
+    const raw =
+      (typeof value === "string" && value) ||
+      value?.url ||
+      value?.src ||
+      value?.image ||
+      value?.imageUrl ||
+      value?.mainImage ||
+      value?.thumb ||
+      value?.thumbnail ||
+      "";
+
+    if (!raw) return "";
+    const str = String(raw).trim();
+    if (!str) return "";
+    if (str.startsWith("http://") || str.startsWith("https://")) return str;
+    if (str.startsWith("//")) return `https:${str}`;
+    if (str.startsWith("/")) return `${YAKKYOFY_MEDIA_FALLBACK}${str}`;
+    return str;
+  };
+
+  const dedupe = (arr: string[]): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const i of arr) {
+      const key = i.trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+    return out;
+  };
+
+  const images = dedupe(
+    [
+      ...(Array.isArray(item?.images) ? item.images : []),
+      ...(Array.isArray(item?.pictures) ? item.pictures : []),
+      ...(Array.isArray(item?.imageList) ? item.imageList : []),
+      ...(Array.isArray(item?.photoUrls) ? item.photoUrls : []),
+      item?.mainImage,
+      item?.image,
+      item?.cover,
+      item?.thumb,
+      item?.thumbnail,
+    ]
+      .map((x) => normalizeImageUrl(x))
+      .filter(Boolean),
+  );
 
   const variantsRaw = item?.variants || item?.skus || item?.skuList || [];
   const variants = Array.isArray(variantsRaw)
@@ -275,14 +319,16 @@ function normalizeProduct(item: any): any {
       name: v?.name || v?.title || v?.sku || "",
       sku: v?.sku || v?.code || v?.skuId || "",
       price: Number(v?.price || v?.salePrice || v?.offerPrice || 0) || undefined,
-      image: v?.image || v?.mainImage || undefined,
+      image: normalizeImageUrl(v?.image || v?.mainImage || v?.thumb || v?.thumbnail) || undefined,
     }))
     : [];
 
   return {
     id: item?.id || item?._id || item?.productId || item?.offerId || item?.pid || "",
     name: item?.name || item?.title || item?.productName || item?.subject || "منتج",
-    image: item?.image || item?.mainImage || item?.cover || item?.thumb || images?.[0],
+    image:
+      normalizeImageUrl(item?.image || item?.mainImage || item?.cover || item?.thumb || item?.thumbnail) ||
+      images?.[0],
     images,
     price: Number(item?.price || item?.minPrice || item?.offerPrice || item?.wholesalePrice || 0) || 0,
     sale_price: Number(item?.sale_price || item?.salePrice || item?.price || item?.minPrice || 0) || 0,
