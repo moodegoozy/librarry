@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scrapeProductFromUrl = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = void 0;
+exports.scrapeProductFromUrl = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetBalance = exports.yakkyofyGetTracking = exports.yakkyofyListOrders = exports.yakkyofyGetCategories = exports.yakkyofyGetProductVariants = exports.yakkyofyGetProductDetail = exports.yakkyofySearchProducts = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const cj = __importStar(require("./cjClient"));
@@ -452,11 +452,11 @@ exports.cjSyncOrderStatuses = functions.https.onCall(async (_data, context) => {
 exports.yakkyofyTestConnection = functions.https.onCall(async (data, context) => {
     var _a;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
-    const { apiKey } = data;
+    const { apiKey, email, password } = data;
     if (!apiKey)
         throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
     try {
-        return await yakkyofy.testConnection(apiKey);
+        return await yakkyofy.testConnection(apiKey, email, password);
     }
     catch (error) {
         wrapError(error);
@@ -514,6 +514,101 @@ exports.yakkyofyGetOrder = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
     try {
         return await yakkyofy.getOrder(data.orderId);
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// البحث عن منتجات Yakkyofy (API داخلي)
+exports.yakkyofySearchProducts = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    try {
+        return await yakkyofy.searchProducts({
+            keyword: data.keyword,
+            category: data.category,
+            page: data.page || 1,
+            per_page: data.per_page || 20,
+        });
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// تفاصيل منتج Yakkyofy
+exports.yakkyofyGetProductDetail = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    if (!data.productId) {
+        throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    }
+    try {
+        return await yakkyofy.getProductDetail(data.productId);
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// متغيرات منتج Yakkyofy
+exports.yakkyofyGetProductVariants = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    if (!data.productId) {
+        throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    }
+    try {
+        return await yakkyofy.getProductVariants(data.productId);
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// تصنيفات Yakkyofy
+exports.yakkyofyGetCategories = functions.https.onCall(async (_data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    try {
+        return await yakkyofy.getCategories();
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// قائمة طلبات Yakkyofy
+exports.yakkyofyListOrders = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    try {
+        return await yakkyofy.listOrders({
+            page: data.page || 1,
+            per_page: data.per_page || 20,
+            status: data.status,
+        });
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// تتبع شحنة Yakkyofy
+exports.yakkyofyGetTracking = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    if (!data.orderId) {
+        throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
+    }
+    try {
+        return await yakkyofy.getTracking(data.orderId);
+    }
+    catch (error) {
+        wrapError(error);
+    }
+});
+// رصيد حساب Yakkyofy
+exports.yakkyofyGetBalance = functions.https.onCall(async (_data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    try {
+        return await yakkyofy.getBalance();
     }
     catch (error) {
         wrapError(error);

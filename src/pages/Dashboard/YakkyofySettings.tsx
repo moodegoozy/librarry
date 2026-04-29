@@ -11,6 +11,8 @@ import "./YakkyofySettings.css";
 type ConnectionStatus = "idle" | "testing" | "connected" | "disconnected";
 
 const DEFAULT_SETTINGS: YakkyofySettings = {
+  email: "",
+  password: "",
   apiKey: "40f39e7b-fe1c-4c44-b0c7-8e3300ab3784",
   defaultMarkup: 30,
   usdToSar: 3.75,
@@ -75,7 +77,11 @@ const YakkyofySettings: React.FC = () => {
     setTesting(true);
     setConnectionStatus("testing");
     try {
-      const result = await testYakkyofyConnection(settings.apiKey);
+      const result = await testYakkyofyConnection(
+        settings.apiKey,
+        settings.email?.trim(),
+        settings.password?.trim(),
+      );
       if (result.success) {
         setConnectionStatus("connected");
         showToast("تم الاتصال بـ Yakkyofy بنجاح! ✓");
@@ -125,8 +131,31 @@ const YakkyofySettings: React.FC = () => {
             الاتصال بـ Yakkyofy
           </div>
           <p className="card-desc">
-            أدخل مفتاح API الخاص بك من لوحة تحكم Yakkyofy لربطه بمتجرك
+            أدخل مفتاح API، وللاستيراد المباشر أضف بريد الحساب وكلمة المرور
           </p>
+
+          <div className="form-group">
+            <label>البريد الإلكتروني (اختياري للاستيراد المباشر)</label>
+            <input
+              type="email"
+              value={settings.email || ""}
+              onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+              placeholder="name@example.com"
+              dir="ltr"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>كلمة المرور (اختيارية للاستيراد المباشر)</label>
+            <input
+              type="password"
+              value={settings.password || ""}
+              onChange={(e) => setSettings({ ...settings, password: e.target.value })}
+              placeholder="••••••••"
+              dir="ltr"
+            />
+            <span className="form-hint">تُستخدم فقط لاستخراج توكن جلسة Yakkyofy الداخلي.</span>
+          </div>
 
           <div className="form-group">
             <label>مفتاح API</label>

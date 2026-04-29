@@ -8,6 +8,8 @@ const functions = getFunctions(app);
 // ==================== أنواع ====================
 
 export interface YakkyofySettings {
+  email?: string;
+  password?: string;
   apiKey: string;
   defaultMarkup: number;
   usdToSar: number;
@@ -65,9 +67,11 @@ export async function saveYakkyofySettings(
 
 export async function testYakkyofyConnection(
   apiKey: string,
+  email?: string,
+  password?: string,
 ): Promise<{ success: boolean; message: string }> {
   const fn = httpsCallable(functions, "yakkyofyTestConnection");
-  const result = await fn({ apiKey });
+  const result = await fn({ apiKey, email, password });
   return result.data as { success: boolean; message: string };
 }
 

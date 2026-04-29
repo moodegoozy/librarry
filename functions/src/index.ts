@@ -458,10 +458,10 @@ export const cjSyncOrderStatuses = functions.https.onCall(
 export const yakkyofyTestConnection = functions.https.onCall(
   async (data, context) => {
     await verifyAdmin(context.auth ?? undefined);
-    const { apiKey } = data;
+    const { apiKey, email, password } = data;
     if (!apiKey) throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
     try {
-      return await yakkyofy.testConnection(apiKey);
+      return await yakkyofy.testConnection(apiKey, email, password);
     } catch (error) {
       wrapError(error);
     }
@@ -527,6 +527,108 @@ export const yakkyofyGetOrder = functions.https.onCall(
       throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
     try {
       return await yakkyofy.getOrder(data.orderId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// البحث عن منتجات Yakkyofy (API داخلي)
+export const yakkyofySearchProducts = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.searchProducts({
+        keyword: data.keyword,
+        category: data.category,
+        page: data.page || 1,
+        per_page: data.per_page || 20,
+      });
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تفاصيل منتج Yakkyofy
+export const yakkyofyGetProductDetail = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.productId) {
+      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    }
+    try {
+      return await yakkyofy.getProductDetail(data.productId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// متغيرات منتج Yakkyofy
+export const yakkyofyGetProductVariants = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.productId) {
+      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    }
+    try {
+      return await yakkyofy.getProductVariants(data.productId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تصنيفات Yakkyofy
+export const yakkyofyGetCategories = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.getCategories();
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// قائمة طلبات Yakkyofy
+export const yakkyofyListOrders = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.listOrders({
+        page: data.page || 1,
+        per_page: data.per_page || 20,
+        status: data.status,
+      });
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تتبع شحنة Yakkyofy
+export const yakkyofyGetTracking = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.orderId) {
+      throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
+    }
+    try {
+      return await yakkyofy.getTracking(data.orderId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// رصيد حساب Yakkyofy
+export const yakkyofyGetBalance = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.getBalance();
     } catch (error) {
       wrapError(error);
     }

@@ -1,25 +1,109 @@
 import fetch from "node-fetch";
 import * as admin from "firebase-admin";
 
-// ==================== Yakkyofy REST API ====================
-// توثيق: https://developers.yakkyofy.com
-// Base URL: https://rest.yakkyofy.com
-// المصادقة: X-API-Key header فقط (من Manage Stores في Dashboard)
-// Endpoints المتاحة: GET /orders/{id} - POST /orders
+// ==================== Yakkyofy APIs ====================
+// REST الرسمي (طلبات): https://rest.yakkyofy.com
+// API الداخلي (منتجات): https://api.yakkyofy.com/api
 
-const YAKKYOFY_BASE_URL = "https://rest.yakkyofy.com";
+const YAKKYOFY_REST_URL = "https://rest.yakkyofy.com";
+const YAKKYOFY_INTERNAL_URL = "https://api.yakkyofy.com/api";
+
+type YakkyofySettings = {
+  apiKey?: string;
+  email?: string;
+  password?: string;
+  internalToken?: string;
+  internalTokenIssuedAt?: admin.firestore.Timestamp | string;
+};
+
+async function getSettings(): Promise<YakkyofySettings> {
+  const db = admin.firestore();
+  const settingsDoc = await db.doc("settings/yakkyofy").get();
+  return (settingsDoc.data() || {}) as YakkyofySettings;
+}
 
 // ==================== الحصول على API Key ====================
 async function getApiKey(): Promise<string> {
-  const db = admin.firestore();
-  const settingsDoc = await db.doc("settings/yakkyofy").get();
-  const settings = settingsDoc.data();
+  const settings = await getSettings();
 
   if (!settings?.apiKey) {
     throw new Error("مفتاح Yakkyofy API غير مُعد. يرجى إدخاله في إعدادات Yakkyofy.");
   }
 
   return settings.apiKey as string;
+}
+
+function extractToken(payload: any): string | null {
+  return (
+    payload?.token ||
+    payload?.accessToken ||
+    payload?.access_token ||
+    payload?.data?.token ||
+    payload?.data?.accessToken ||
+    payload?.data?.access_token ||
+    null
+  );
+}
+
+async function loginInternal(email: string, password: string): Promise<string> {
+  const response = await fetch(`${YAKKYOFY_INTERNAL_URL}/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`فشل تسجيل الدخول الداخلي (${response.status}): ${text.substring(0, 200)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`فشل تسجيل الدخول الداخلي (${response.status}): ${data?.message || text.substring(0, 160)}`);
+  }
+
+  const token = extractToken(data);
+  if (!token) {
+    throw new Error("تم تسجيل الدخول لكن لم يتم استلام توكن x-access-token.");
+  }
+
+  await admin.firestore().doc("settings/yakkyofy").set(
+    {
+      internalToken: token,
+      internalTokenIssuedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return token;
+}
+
+function tokenIsFresh(issuedAt: YakkyofySettings["internalTokenIssuedAt"]): boolean {
+  if (!issuedAt) return false;
+  let date: Date | null = null;
+  if (typeof issuedAt === "string") date = new Date(issuedAt);
+  else if ((issuedAt as any).toDate) date = (issuedAt as any).toDate();
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const ageMs = Date.now() - date.getTime();
+  return ageMs < 90 * 60 * 1000;
+}
+
+async function getInternalToken(): Promise<string> {
+  const settings = await getSettings();
+  if (settings.internalToken && tokenIsFresh(settings.internalTokenIssuedAt)) {
+    return settings.internalToken;
+  }
+
+  if (!settings.email || !settings.password) {
+    throw new Error("الاستيراد المباشر يتطلب البريد الإلكتروني وكلمة المرور في إعدادات Yakkyofy.");
+  }
+
+  return loginInternal(settings.email, settings.password);
 }
 
 // ==================== طلب مصادق ====================
@@ -31,7 +115,7 @@ async function yakkyofyFetch(
   } = {},
 ): Promise<any> {
   const apiKey = await getApiKey();
-  const url = `${YAKKYOFY_BASE_URL}${path}`;
+  const url = `${YAKKYOFY_REST_URL}${path}`;
 
   const response = await fetch(url, {
     method: options.method || "GET",
@@ -59,14 +143,60 @@ async function yakkyofyFetch(
   return data;
 }
 
+async function internalFetch(
+  path: string,
+  options: {
+    method?: string;
+    body?: object;
+    params?: Record<string, string | number | boolean | undefined>;
+  } = {},
+): Promise<any> {
+  const token = await getInternalToken();
+  let url = `${YAKKYOFY_INTERNAL_URL}${path}`;
+
+  if (options.params) {
+    const query = Object.entries(options.params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    if (query) url += `?${query}`;
+  }
+
+  const response = await fetch(url, {
+    method: options.method || "GET",
+    headers: {
+      "x-access-token": token,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+  });
+
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Yakkyofy Internal API: استجابة غير متوقعة (${response.status})`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Yakkyofy Internal API error (${response.status}): ${data?.message || text.substring(0, 160)}`);
+  }
+
+  return data;
+}
+
 // ==================== اختبار الاتصال ====================
 // يستخدم GET /orders/{id} - إذا عاد 400/404 JSON يعني الـ API key صحيح
 // إذا عاد 401/403 يعني الـ key غير صحيح
 export async function testConnection(
   apiKey: string,
+  email?: string,
+  password?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await fetch(`${YAKKYOFY_BASE_URL}/orders/connection-test`, {
+    const response = await fetch(`${YAKKYOFY_REST_URL}/orders/connection-test`, {
       method: "GET",
       headers: {
         "X-API-Key": apiKey,
@@ -92,12 +222,60 @@ export async function testConnection(
       };
     }
 
-    // 400 أو 404 = الـ API تعرّف على الطلب = المفتاح صحيح
+    if (email && password) {
+      const token = await loginInternal(email, password);
+      if (!token) {
+        return { success: false, message: "فشل الحصول على توكن الاستيراد المباشر." };
+      }
+      return { success: true, message: "تم الاتصال بـ Yakkyofy (REST + استيراد مباشر) بنجاح ✓" };
+    }
+
     return { success: true, message: "تم الاتصال بـ Yakkyofy REST API بنجاح ✓" };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "خطأ غير معروف";
     return { success: false, message: msg };
   }
+}
+
+// ==================== منتجات (API داخلي غير رسمي) ====================
+export async function searchProducts(params: {
+  keyword?: string;
+  category?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<any> {
+  return internalFetch("/products", {
+    params: {
+      page: params.page || 1,
+      per_page: params.per_page || 20,
+      limit: params.per_page || 20,
+      keyword: params.keyword,
+      q: params.keyword,
+      search: params.keyword,
+      category: params.category,
+    },
+  });
+}
+
+export async function getProductDetail(productId: string): Promise<any> {
+  try {
+    return await internalFetch(`/products/${productId}`);
+  } catch {
+    return await internalFetch(`/products/edit/${productId}`);
+  }
+}
+
+export async function getProductVariants(productId: string): Promise<any> {
+  try {
+    return await internalFetch(`/products/variants/index/${productId}`);
+  } catch {
+    const detail = await getProductDetail(productId);
+    return detail?.variants || detail?.data?.variants || [];
+  }
+}
+
+export async function getCategories(): Promise<any> {
+  return internalFetch("/products/settings");
 }
 
 // ==================== إنشاء طلب ====================
@@ -132,4 +310,36 @@ export async function createOrder(orderData: {
 // ==================== جلب طلب معين ====================
 export async function getOrder(orderId: string): Promise<any> {
   return yakkyofyFetch(`/orders/${orderId}`);
+}
+
+export async function listOrders(params: {
+  page?: number;
+  per_page?: number;
+  status?: string;
+}): Promise<any> {
+  return internalFetch("/orders", {
+    params: {
+      page: params.page || 1,
+      per_page: params.per_page || 20,
+      status: params.status,
+    },
+  });
+}
+
+export async function getTracking(orderId: string): Promise<any> {
+  try {
+    return await internalFetch(`/orders/fulfillment/tracking/${orderId}`);
+  } catch {
+    return await internalFetch("/orders/fulfillment/tracking", {
+      params: { orderId },
+    });
+  }
+}
+
+export async function getBalance(): Promise<any> {
+  try {
+    return await internalFetch("/subscription");
+  } catch {
+    return { balance: null };
+  }
 }
