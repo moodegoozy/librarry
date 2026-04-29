@@ -61,6 +61,33 @@ const YakkyofyProducts: React.FC = () => {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const extractList = (payload: any): YakkyofyProduct[] => {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== "object") return [];
+
+    const candidates = [
+      payload.data,
+      payload.items,
+      payload.products,
+      payload.results,
+      payload.rows,
+      payload.docs,
+      payload.list,
+      payload.records,
+      payload.raw,
+    ];
+
+    for (const c of candidates) {
+      if (Array.isArray(c)) return c;
+      if (c && typeof c === "object") {
+        const nested = extractList(c);
+        if (nested.length) return nested;
+      }
+    }
+
+    return [];
+  };
+
   const handleSearch = async (newPage?: number) => {
     if (!keyword.trim()) return;
     const targetPage = newPage ?? page;
@@ -72,10 +99,9 @@ const YakkyofyProducts: React.FC = () => {
         per_page: perPage,
       });
 
-      // نقبل أي شكل من أشكال الاستجابة من Yakkyofy
       const data = result?.data || result;
-      const list: YakkyofyProduct[] = data?.data || data?.products || data?.items || (Array.isArray(data) ? data : []);
-      const total: number = data?.total || data?.meta?.total || list.length;
+      const list: YakkyofyProduct[] = extractList(data);
+      const total: number = data?.total || data?.meta?.total || data?.count || list.length;
 
       setProducts(list);
       setTotalProducts(total);

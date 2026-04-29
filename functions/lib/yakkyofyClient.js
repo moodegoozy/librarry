@@ -189,6 +189,32 @@ async function internalFetch(path, options = {}) {
     }
     return data;
 }
+function extractProductList(payload) {
+    if (Array.isArray(payload))
+        return payload;
+    if (!payload || typeof payload !== "object")
+        return [];
+    const candidates = [
+        payload.data,
+        payload.items,
+        payload.products,
+        payload.results,
+        payload.rows,
+        payload.docs,
+        payload.list,
+        payload.records,
+    ];
+    for (const c of candidates) {
+        if (Array.isArray(c))
+            return c;
+    }
+    for (const value of Object.values(payload)) {
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
+            return value;
+        }
+    }
+    return [];
+}
 // ==================== اختبار الاتصال ====================
 // يستخدم GET /orders/{id} - إذا عاد 400/404 JSON يعني الـ API key صحيح
 // إذا عاد 401/403 يعني الـ key غير صحيح
@@ -232,17 +258,52 @@ async function testConnection(apiKey, email, password) {
 }
 // ==================== منتجات (API داخلي غير رسمي) ====================
 async function searchProducts(params) {
-    return internalFetch("/products", {
-        params: {
-            page: params.page || 1,
-            per_page: params.per_page || 20,
-            limit: params.per_page || 20,
-            keyword: params.keyword,
-            q: params.keyword,
-            search: params.keyword,
-            category: params.category,
-        },
-    });
+    var _a, _b;
+    const commonParams = {
+        page: params.page || 1,
+        per_page: params.per_page || 20,
+        limit: params.per_page || 20,
+        keyword: params.keyword,
+        q: params.keyword,
+        search: params.keyword,
+        name: params.keyword,
+        title: params.keyword,
+        category: params.category,
+    };
+    const attempts = [
+        () => internalFetch("/products", { params: commonParams }),
+        () => internalFetch("/products/", { params: commonParams }),
+        () => internalFetch("/products/management", { params: commonParams }),
+        () => internalFetch("/products/management/", { params: commonParams }),
+        () => internalFetch("/products/search", { method: "POST", body: commonParams }),
+        () => internalFetch("/products/management/search", { method: "POST", body: commonParams }),
+    ];
+    let lastError = null;
+    for (const attempt of attempts) {
+        try {
+            const res = await attempt();
+            const list = extractProductList(res);
+            if (list.length > 0) {
+                return {
+                    data: list,
+                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_a = res === null || res === void 0 ? void 0 : res.meta) === null || _a === void 0 ? void 0 : _a.total) || (res === null || res === void 0 ? void 0 : res.count) || list.length,
+                    raw: res,
+                };
+            }
+            // إذا لم نجد عناصر، نرجع أول رد ناجح بدلاً من رمي خطأ
+            if (res) {
+                return {
+                    data: extractProductList(res),
+                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_b = res === null || res === void 0 ? void 0 : res.meta) === null || _b === void 0 ? void 0 : _b.total) || (res === null || res === void 0 ? void 0 : res.count) || 0,
+                    raw: res,
+                };
+            }
+        }
+        catch (error) {
+            lastError = error instanceof Error ? error : new Error("Yakkyofy search failed");
+        }
+    }
+    throw lastError || new Error("تعذر جلب منتجات Yakkyofy.");
 }
 async function getProductDetail(productId) {
     try {
