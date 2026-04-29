@@ -455,11 +455,11 @@ export const cjSyncOrderStatuses = functions.https.onCall(
 export const yakkyofyTestConnection = functions.https.onCall(
   async (data, context) => {
     await verifyAdmin(context.auth ?? undefined);
-    const { apiKey } = data;
-    if (!apiKey)
-      throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
+    const { email, apiKey } = data;
+    if (!email) throw new functions.https.HttpsError("invalid-argument", "البريد الإلكتروني مطلوب");
+    if (!apiKey) throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
     try {
-      return await yakkyofy.testConnection(apiKey);
+      return await yakkyofy.testConnection(email, apiKey);
     } catch (error) {
       wrapError(error);
     }

@@ -3,19 +3,75 @@ import * as admin from "firebase-admin";
 
 const YAKKYOFY_BASE_URL = "https://app.yakkyofy.com/api";
 
-// ==================== الحصول على إعدادات Yakkyofy ====================
-async function getApiKey(): Promise<string> {
+// ==================== تسجيل الدخول والحصول على Access Token ====================
+async function loginAndGetToken(email: string, password: string): Promise<string> {
+  const response = await fetch(`${YAKKYOFY_BASE_URL}/b2b/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const bodyText = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(bodyText);
+  } catch {
+    throw new Error(`تسجيل الدخول فشل (${response.status}): ${bodyText.substring(0, 300)}`);
+  }
+
+  if (!response.ok) {
+    const msg = data?.message || data?.error || JSON.stringify(data);
+    throw new Error(`فشل تسجيل الدخول في Yakkyofy (${response.status}): ${msg}`);
+  }
+
+  const token = data?.access_token || data?.token || data?.data?.access_token;
+  if (!token) {
+    throw new Error(`لم يُعاد access_token من Yakkyofy. الاستجابة: ${JSON.stringify(data).substring(0, 300)}`);
+  }
+
+  // حفظ الـ token في Firestore مع تاريخ انتهاء الصلاحية (24 ساعة)
+  const db = admin.firestore();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await db.doc("settings/yakkyofy").set(
+    {
+      accessToken: token,
+      tokenExpiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    },
+    { merge: true },
+  );
+
+  return token;
+}
+
+// ==================== الحصول على access token صالح ====================
+async function getValidAccessToken(): Promise<string> {
   const db = admin.firestore();
   const settingsDoc = await db.doc("settings/yakkyofy").get();
   const settings = settingsDoc.data();
 
-  if (!settings?.apiKey) {
-    throw new Error(
-      "مفتاح Yakkyofy API غير مُعد. يرجى إدخاله في إعدادات Yakkyofy.",
-    );
+  if (!settings?.email || !settings?.apiKey) {
+    throw new Error("بيانات Yakkyofy غير مُعدة. يرجى إدخال البريد الإلكتروني ومفتاح API في إعدادات Yakkyofy.");
   }
 
-  return settings.apiKey as string;
+  // التحقق من صلاحية الـ token المخزّن
+  if (settings.accessToken && settings.tokenExpiresAt) {
+    let expiry: Date;
+    if (settings.tokenExpiresAt.toDate) {
+      expiry = settings.tokenExpiresAt.toDate();
+    } else {
+      expiry = new Date(settings.tokenExpiresAt);
+    }
+    // إضافة هامش 5 دقائق
+    if (expiry > new Date(Date.now() + 5 * 60 * 1000)) {
+      return settings.accessToken as string;
+    }
+  }
+
+  // تسجيل دخول للحصول على token جديد
+  return await loginAndGetToken(settings.email as string, settings.apiKey as string);
 }
 
 // ==================== طلب مصادق ====================
@@ -27,7 +83,7 @@ async function yakkyofyFetch(
     params?: Record<string, string | number>;
   } = {},
 ): Promise<any> {
-  const apiKey = await getApiKey();
+  const accessToken = await getValidAccessToken();
 
   let url = `${YAKKYOFY_BASE_URL}${path}`;
 
@@ -43,9 +99,7 @@ async function yakkyofyFetch(
   const response = await fetch(url, {
     method: options.method || "GET",
     headers: {
-      // نجرب صيغتين للمصادقة: Bearer + X-Api-Key
-      Authorization: `Bearer ${apiKey}`,
-      "X-Api-Key": apiKey,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -77,35 +131,30 @@ async function yakkyofyFetch(
 
 // ==================== اختبار الاتصال ====================
 export async function testConnection(
+  email: string,
   apiKey: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
+    // محاولة تسجيل الدخول للحصول على access_token
+    const token = await loginAndGetToken(email, apiKey);
+
+    // اختبار طلب حقيقي بعد الحصول على الـ token
     const response = await fetch(`${YAKKYOFY_BASE_URL}/b2b/products?per_page=1`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "X-Api-Key": apiKey,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
     });
 
-    const contentType = response.headers.get("content-type") || "";
-    const bodyText = await response.text();
-    const isJson = contentType.includes("json");
-    const isHtml = bodyText.toLowerCase().includes("<!doctype") || bodyText.toLowerCase().includes("<html");
-
-    if (response.ok && isJson) {
+    if (response.ok) {
       return { success: true, message: "تم الاتصال بـ Yakkyofy بنجاح ✓" };
-    } else if (isHtml) {
-      return {
-        success: false,
-        message: `الـ API أعاد صفحة HTML (${response.status}) - تأكد من صحة مفتاح API. يتطلب الاشتراك في خطة Yakkyofy B2B.`,
-      };
     } else {
+      const bodyText = await response.text();
       return {
         success: false,
-        message: `فشل الاتصال (${response.status}): ${bodyText.substring(0, 200)}`,
+        message: `تسجيل الدخول نجح لكن طلب المنتجات فشل (${response.status}): ${bodyText.substring(0, 200)}`,
       };
     }
   } catch (error) {
