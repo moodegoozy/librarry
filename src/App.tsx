@@ -121,6 +121,18 @@ const CJSettings = lazyWithRetry(
   () => import("./pages/Dashboard/CJSettings"),
   "CJSettings",
 );
+const YakkyofyProducts = lazyWithRetry(
+  () => import("./pages/Dashboard/YakkyofyProducts"),
+  "YakkyofyProducts",
+);
+const YakkyofyOrders = lazyWithRetry(
+  () => import("./pages/Dashboard/YakkyofyOrders"),
+  "YakkyofyOrders",
+);
+const YakkyofySettings = lazyWithRetry(
+  () => import("./pages/Dashboard/YakkyofySettings"),
+  "YakkyofySettings",
+);
 
 // Styles
 import "./styles/globals.css";
@@ -249,6 +261,9 @@ const App: React.FC = () => {
           <Route path="cj-products" element={<CJProducts />} />
           <Route path="cj-orders" element={<CJOrders />} />
           <Route path="cj-settings" element={<CJSettings />} />
+          <Route path="yakkyofy-products" element={<YakkyofyProducts />} />
+          <Route path="yakkyofy-orders" element={<YakkyofyOrders />} />
+          <Route path="yakkyofy-settings" element={<YakkyofySettings />} />
         </Route>
 
         {/* Store Routes */}

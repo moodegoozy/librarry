@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as cj from "./cjClient";
+import * as yakkyofy from "./yakkyofyClient";
 import * as paypal from "./paypalClient";
 import * as tamara from "./tamaraClient";
 import { scrapeAmazonProduct, scrapeAmazonWithApi } from "./amazonScraper";
@@ -437,6 +438,241 @@ export const cjSyncOrderStatuses = functions.https.onCall(
 
           await doc.ref.update(updates);
           results.push({ orderId: doc.id, status: cjOrder.orderStatus });
+        }
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "خطأ";
+        results.push({ orderId: doc.id, status: "error", error: msg });
+      }
+    }
+
+    return { synced: results.length, results };
+  },
+);
+
+// ==================== Yakkyofy Dropshipping ====================
+
+// اختبار الاتصال بـ Yakkyofy
+export const yakkyofyTestConnection = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const { apiKey } = data;
+    if (!apiKey)
+      throw new functions.https.HttpsError("invalid-argument", "مفتاح API مطلوب");
+    try {
+      return await yakkyofy.testConnection(apiKey);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// حفظ إعدادات Yakkyofy في Firestore
+export const yakkyofySaveSettings = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      const db = admin.firestore();
+      await db.doc("settings/yakkyofy").set(
+        {
+          ...data.settings,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return { success: true };
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// البحث عن منتجات Yakkyofy
+export const yakkyofySearchProducts = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.searchProducts({
+        name: data.keyword,
+        category: data.category,
+        page: data.page || 1,
+        per_page: data.per_page || 20,
+      });
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تفاصيل منتج Yakkyofy
+export const yakkyofyGetProductDetail = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.productId)
+      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    try {
+      return await yakkyofy.getProductDetail(data.productId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// متغيرات منتج Yakkyofy
+export const yakkyofyGetProductVariants = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.productId)
+      throw new functions.https.HttpsError("invalid-argument", "productId مطلوب");
+    try {
+      return await yakkyofy.getProductVariants(data.productId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تصنيفات Yakkyofy
+export const yakkyofyGetCategories = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.getCategories();
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// إنشاء طلب Yakkyofy
+export const yakkyofyCreateOrder = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const { firestoreOrderId, orderData } = data;
+    if (!orderData)
+      throw new functions.https.HttpsError("invalid-argument", "orderData مطلوب");
+    try {
+      const result: any = await yakkyofy.createOrder(orderData);
+
+      // تحديث الطلب في Firestore مع بيانات Yakkyofy
+      if (result && firestoreOrderId) {
+        const orderId = result.id || result.order_id || result.order?.id;
+        await admin
+          .firestore()
+          .doc(`orders/${firestoreOrderId}`)
+          .update({
+            isYakkyofyOrder: true,
+            yakkyofyOrderId: String(orderId || ""),
+            yakkyofyStatus: "created",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+      }
+
+      return result;
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// جلب حالة طلب Yakkyofy
+export const yakkyofyGetOrder = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.orderId)
+      throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
+    try {
+      return await yakkyofy.getOrder(data.orderId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// قائمة طلبات Yakkyofy
+export const yakkyofyListOrders = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.listOrders({
+        page: data.page || 1,
+        per_page: data.per_page || 20,
+        status: data.status,
+      });
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// تتبع شحنة Yakkyofy
+export const yakkyofyGetTracking = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    if (!data.orderId)
+      throw new functions.https.HttpsError("invalid-argument", "orderId مطلوب");
+    try {
+      return await yakkyofy.getTracking(data.orderId);
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// رصيد حساب Yakkyofy
+export const yakkyofyGetBalance = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    try {
+      return await yakkyofy.getBalance();
+    } catch (error) {
+      wrapError(error);
+    }
+  },
+);
+
+// مزامنة حالة طلبات Yakkyofy
+export const yakkyofySyncOrderStatuses = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const db = admin.firestore();
+    const ordersSnap = await db
+      .collection("orders")
+      .where("isYakkyofyOrder", "==", true)
+      .where("status", "not-in", ["delivered", "cancelled"])
+      .get();
+
+    const results: { orderId: string; status: string; error?: string }[] = [];
+
+    for (const doc of ordersSnap.docs) {
+      const order = doc.data();
+      if (!order.yakkyofyOrderId) continue;
+
+      try {
+        const yakResult: any = await yakkyofy.getOrder(order.yakkyofyOrderId);
+        if (yakResult) {
+          const status = yakResult.status || yakResult.order_status || "";
+          const updates: Record<string, unknown> = {
+            yakkyofyStatus: status,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+          if (yakResult.tracking_number || yakResult.trackingNumber) {
+            updates.trackingNumber = yakResult.tracking_number || yakResult.trackingNumber;
+          }
+
+          const statusMap: Record<string, string> = {
+            pending: "processing",
+            processing: "processing",
+            shipped: "shipped",
+            delivered: "delivered",
+            cancelled: "cancelled",
+          };
+
+          const mappedStatus = statusMap[status?.toLowerCase()];
+          if (mappedStatus) updates.status = mappedStatus;
+
+          await doc.ref.update(updates);
+          results.push({ orderId: doc.id, status });
         }
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : "خطأ";
