@@ -262,76 +262,181 @@ function extractProductList(payload: any): any[] {
   return [];
 }
 
-function normalizeProduct(item: any): any {
-  const normalizeImageUrl = (value: any): string => {
-    const raw =
-      (typeof value === "string" && value) ||
-      value?.url ||
-      value?.src ||
-      value?.image ||
-      value?.imageUrl ||
-      value?.mainImage ||
-      value?.thumb ||
-      value?.thumbnail ||
-      "";
+function normalizeImageUrl(value: any): string {
+  if (!value) return "";
 
-    if (!raw) return "";
-    const str = String(raw).trim();
-    if (!str) return "";
-    if (str.startsWith("http://") || str.startsWith("https://")) return str;
-    if (str.startsWith("//")) return `https:${str}`;
-    if (str.startsWith("/")) return `${YAKKYOFY_MEDIA_FALLBACK}${str}`;
-    return str;
-  };
-
-  const dedupe = (arr: string[]): string[] => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const i of arr) {
-      const key = i.trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(key);
+  // إذا كان الكائن يحتوي على مصفوفة روابط، خذ أول واحد
+  if (typeof value === "object") {
+    const nestedArr =
+      value.fullPathImageURIList ||
+      value.fullPathImageURI ||
+      value.imageURIList ||
+      value.imageURI ||
+      value.urls ||
+      value.list;
+    if (Array.isArray(nestedArr) && nestedArr.length) {
+      for (const n of nestedArr) {
+        const norm = normalizeImageUrl(n);
+        if (norm) return norm;
+      }
     }
-    return out;
-  };
+  }
 
-  const images = dedupe(
-    [
-      ...(Array.isArray(item?.images) ? item.images : []),
-      ...(Array.isArray(item?.pictures) ? item.pictures : []),
-      ...(Array.isArray(item?.imageList) ? item.imageList : []),
-      ...(Array.isArray(item?.photoUrls) ? item.photoUrls : []),
-      item?.mainImage,
-      item?.image,
-      item?.cover,
-      item?.thumb,
-      item?.thumbnail,
-    ]
-      .map((x) => normalizeImageUrl(x))
-      .filter(Boolean),
-  );
+  const raw =
+    (typeof value === "string" && value) ||
+    value?.url ||
+    value?.src ||
+    value?.image ||
+    value?.imageUrl ||
+    value?.mainImage ||
+    value?.fullPath ||
+    value?.full ||
+    value?.original ||
+    value?.large ||
+    value?.medium ||
+    value?.thumb ||
+    value?.thumbnail ||
+    value?.path ||
+    "";
 
-  const variantsRaw = item?.variants || item?.skus || item?.skuList || [];
+  if (!raw) return "";
+  let str = String(raw).trim();
+  if (!str) return "";
+
+  // إزالة علامات الاقتباس الإضافية إن وُجدت
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+
+  if (str.startsWith("https://")) return str;
+  if (str.startsWith("http://")) return "https://" + str.substring(7); // ترقية لـ https لتفادي mixed-content
+  if (str.startsWith("//")) return `https:${str}`;
+  if (str.startsWith("/")) return `${YAKKYOFY_MEDIA_FALLBACK}${str}`;
+
+  // روابط بدون بروتوكول (مثل cbu01.alicdn.com/img/...)
+  if (/^[a-z0-9.-]+\.(com|net|cn|org|io)\//i.test(str)) {
+    return `https://${str}`;
+  }
+
+  return str;
+}
+
+function dedupeImages(arr: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const i of arr) {
+    const key = (i || "").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+// استخراج كل الصور المحتملة من بنيات 1688/Yakkyofy المتعددة
+function collectImages(item: any): string[] {
+  if (!item || typeof item !== "object") return [];
+
+  const arrays = [
+    item.images,
+    item.pictures,
+    item.imageList,
+    item.imageUrls,
+    item.imageUrlList,
+    item.photoUrls,
+    item.productImageList,
+    item.productImages,
+    item.productPictureUrl,
+    item.productPictures,
+    item.pictureList,
+    item.picList,
+    item.picUrls,
+    item.picUrlList,
+    item.skuImages,
+    item.detailImages,
+    item.detailImageList,
+    item.descImages,
+  ].filter(Array.isArray);
+
+  // productImage قد يكون كائناً يحتوي fullPathImageURIList
+  const productImageObj =
+    item.productImage && typeof item.productImage === "object" && !Array.isArray(item.productImage)
+      ? item.productImage
+      : null;
+
+  if (productImageObj) {
+    const inner = [
+      productImageObj.fullPathImageURIList,
+      productImageObj.fullPathImageURI,
+      productImageObj.imageURIList,
+      productImageObj.imageURI,
+      productImageObj.urls,
+      productImageObj.list,
+    ].filter(Array.isArray);
+    arrays.push(...inner);
+  }
+
+  const singles = [
+    typeof item.productImage === "string" ? item.productImage : null,
+    productImageObj?.url,
+    productImageObj?.src,
+    item.mainImage,
+    item.mainImageUrl,
+    item.mainPic,
+    item.mainPicture,
+    item.image,
+    item.imageUrl,
+    item.cover,
+    item.coverImage,
+    item.coverUrl,
+    item.thumb,
+    item.thumbnail,
+    item.pic,
+    item.picUrl,
+    item.pic_url,
+    item.productImg,
+    item.productImageUrl,
+  ];
+
+  const all: any[] = [];
+  for (const arr of arrays) all.push(...arr);
+  all.push(...singles);
+
+  return dedupeImages(all.map(normalizeImageUrl).filter(Boolean));
+}
+
+function normalizeProduct(item: any): any {
+  const images = collectImages(item);
+
+  const variantsRaw = item?.variants || item?.skus || item?.skuList || item?.skuInfos || [];
   const variants = Array.isArray(variantsRaw)
     ? variantsRaw.map((v: any) => ({
       id: v?.id || v?._id || v?.skuId || v?.sku || "",
-      name: v?.name || v?.title || v?.sku || "",
+      name: v?.name || v?.title || v?.sku || v?.skuAttributes || "",
       sku: v?.sku || v?.code || v?.skuId || "",
       price: Number(v?.price || v?.salePrice || v?.offerPrice || 0) || undefined,
-      image: normalizeImageUrl(v?.image || v?.mainImage || v?.thumb || v?.thumbnail) || undefined,
+      image:
+        normalizeImageUrl(
+          v?.image || v?.imageUrl || v?.mainImage || v?.pic || v?.picUrl || v?.thumb || v?.thumbnail,
+        ) || undefined,
     }))
     : [];
 
   return {
     id: item?.id || item?._id || item?.productId || item?.offerId || item?.pid || "",
-    name: item?.name || item?.title || item?.productName || item?.subject || "منتج",
-    image:
-      normalizeImageUrl(item?.image || item?.mainImage || item?.cover || item?.thumb || item?.thumbnail) ||
-      images?.[0],
+    name:
+      item?.name ||
+      item?.title ||
+      item?.productName ||
+      item?.subject ||
+      item?.subjectTrans ||
+      "منتج",
+    image: images?.[0] || "",
     images,
-    price: Number(item?.price || item?.minPrice || item?.offerPrice || item?.wholesalePrice || 0) || 0,
-    sale_price: Number(item?.sale_price || item?.salePrice || item?.price || item?.minPrice || 0) || 0,
+    price:
+      Number(item?.price || item?.minPrice || item?.offerPrice || item?.wholesalePrice || 0) || 0,
+    sale_price:
+      Number(item?.sale_price || item?.salePrice || item?.price || item?.minPrice || 0) || 0,
     category: item?.category || item?.categoryName || item?.catName || "",
     sku: item?.sku || item?.code || "",
     description: item?.description || item?.desc || item?.title || "",

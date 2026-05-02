@@ -53,6 +53,8 @@ const admin = __importStar(require("firebase-admin"));
 // API الداخلي (منتجات): https://api.yakkyofy.com/api
 const YAKKYOFY_REST_URL = "https://rest.yakkyofy.com";
 const YAKKYOFY_INTERNAL_URL = "https://api.yakkyofy.com/api";
+const YAKKYOFY_V2_URL = "https://apiv2.yakkyofy.com";
+const YAKKYOFY_MEDIA_FALLBACK = "https://yakkyofy-media.dokku.yakkyo.com";
 async function getSettings() {
     const db = admin.firestore();
     const settingsDoc = await db.doc("settings/yakkyofy").get();
@@ -171,6 +173,7 @@ async function internalFetch(path, options = {}) {
         method: options.method || "GET",
         headers: {
             "x-access-token": token,
+            "x-api-version": "v1",
             "Content-Type": "application/json",
             Accept: "application/json",
         },
@@ -186,6 +189,39 @@ async function internalFetch(path, options = {}) {
     }
     if (!response.ok) {
         throw new Error(`Yakkyofy Internal API error (${response.status}): ${(data === null || data === void 0 ? void 0 : data.message) || text.substring(0, 160)}`);
+    }
+    return data;
+}
+async function internalV2Fetch(path, options = {}) {
+    const token = await getInternalToken();
+    let url = `${YAKKYOFY_V2_URL}${path}`;
+    if (options.params) {
+        const query = Object.entries(options.params)
+            .filter(([, v]) => v !== undefined && v !== null && v !== "")
+            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+            .join("&");
+        if (query)
+            url += `?${query}`;
+    }
+    const response = await (0, node_fetch_1.default)(url, {
+        method: options.method || "GET",
+        headers: {
+            "x-access-token": token,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+    });
+    const text = await response.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    }
+    catch (_a) {
+        throw new Error(`Yakkyofy V2 API: استجابة غير متوقعة (${response.status})`);
+    }
+    if (!response.ok) {
+        throw new Error(`Yakkyofy V2 API error (${response.status}): ${(data === null || data === void 0 ? void 0 : data.message) || text.substring(0, 160)}`);
     }
     return data;
 }
@@ -214,6 +250,174 @@ function extractProductList(payload) {
         }
     }
     return [];
+}
+function normalizeImageUrl(value) {
+    if (!value)
+        return "";
+    // إذا كان الكائن يحتوي على مصفوفة روابط، خذ أول واحد
+    if (typeof value === "object") {
+        const nestedArr = value.fullPathImageURIList ||
+            value.fullPathImageURI ||
+            value.imageURIList ||
+            value.imageURI ||
+            value.urls ||
+            value.list;
+        if (Array.isArray(nestedArr) && nestedArr.length) {
+            for (const n of nestedArr) {
+                const norm = normalizeImageUrl(n);
+                if (norm)
+                    return norm;
+            }
+        }
+    }
+    const raw = (typeof value === "string" && value) ||
+        (value === null || value === void 0 ? void 0 : value.url) ||
+        (value === null || value === void 0 ? void 0 : value.src) ||
+        (value === null || value === void 0 ? void 0 : value.image) ||
+        (value === null || value === void 0 ? void 0 : value.imageUrl) ||
+        (value === null || value === void 0 ? void 0 : value.mainImage) ||
+        (value === null || value === void 0 ? void 0 : value.fullPath) ||
+        (value === null || value === void 0 ? void 0 : value.full) ||
+        (value === null || value === void 0 ? void 0 : value.original) ||
+        (value === null || value === void 0 ? void 0 : value.large) ||
+        (value === null || value === void 0 ? void 0 : value.medium) ||
+        (value === null || value === void 0 ? void 0 : value.thumb) ||
+        (value === null || value === void 0 ? void 0 : value.thumbnail) ||
+        (value === null || value === void 0 ? void 0 : value.path) ||
+        "";
+    if (!raw)
+        return "";
+    let str = String(raw).trim();
+    if (!str)
+        return "";
+    // إزالة علامات الاقتباس الإضافية إن وُجدت
+    if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+        str = str.slice(1, -1).trim();
+    }
+    if (str.startsWith("https://"))
+        return str;
+    if (str.startsWith("http://"))
+        return "https://" + str.substring(7); // ترقية لـ https لتفادي mixed-content
+    if (str.startsWith("//"))
+        return `https:${str}`;
+    if (str.startsWith("/"))
+        return `${YAKKYOFY_MEDIA_FALLBACK}${str}`;
+    // روابط بدون بروتوكول (مثل cbu01.alicdn.com/img/...)
+    if (/^[a-z0-9.-]+\.(com|net|cn|org|io)\//i.test(str)) {
+        return `https://${str}`;
+    }
+    return str;
+}
+function dedupeImages(arr) {
+    const seen = new Set();
+    const out = [];
+    for (const i of arr) {
+        const key = (i || "").trim();
+        if (!key || seen.has(key))
+            continue;
+        seen.add(key);
+        out.push(key);
+    }
+    return out;
+}
+// استخراج كل الصور المحتملة من بنيات 1688/Yakkyofy المتعددة
+function collectImages(item) {
+    if (!item || typeof item !== "object")
+        return [];
+    const arrays = [
+        item.images,
+        item.pictures,
+        item.imageList,
+        item.imageUrls,
+        item.imageUrlList,
+        item.photoUrls,
+        item.productImageList,
+        item.productImages,
+        item.productPictureUrl,
+        item.productPictures,
+        item.pictureList,
+        item.picList,
+        item.picUrls,
+        item.picUrlList,
+        item.skuImages,
+        item.detailImages,
+        item.detailImageList,
+        item.descImages,
+    ].filter(Array.isArray);
+    // productImage قد يكون كائناً يحتوي fullPathImageURIList
+    const productImageObj = item.productImage && typeof item.productImage === "object" && !Array.isArray(item.productImage)
+        ? item.productImage
+        : null;
+    if (productImageObj) {
+        const inner = [
+            productImageObj.fullPathImageURIList,
+            productImageObj.fullPathImageURI,
+            productImageObj.imageURIList,
+            productImageObj.imageURI,
+            productImageObj.urls,
+            productImageObj.list,
+        ].filter(Array.isArray);
+        arrays.push(...inner);
+    }
+    const singles = [
+        typeof item.productImage === "string" ? item.productImage : null,
+        productImageObj === null || productImageObj === void 0 ? void 0 : productImageObj.url,
+        productImageObj === null || productImageObj === void 0 ? void 0 : productImageObj.src,
+        item.mainImage,
+        item.mainImageUrl,
+        item.mainPic,
+        item.mainPicture,
+        item.image,
+        item.imageUrl,
+        item.cover,
+        item.coverImage,
+        item.coverUrl,
+        item.thumb,
+        item.thumbnail,
+        item.pic,
+        item.picUrl,
+        item.pic_url,
+        item.productImg,
+        item.productImageUrl,
+    ];
+    const all = [];
+    for (const arr of arrays)
+        all.push(...arr);
+    all.push(...singles);
+    return dedupeImages(all.map(normalizeImageUrl).filter(Boolean));
+}
+function normalizeProduct(item) {
+    var _a, _b;
+    const images = collectImages(item);
+    const variantsRaw = (item === null || item === void 0 ? void 0 : item.variants) || (item === null || item === void 0 ? void 0 : item.skus) || (item === null || item === void 0 ? void 0 : item.skuList) || (item === null || item === void 0 ? void 0 : item.skuInfos) || [];
+    const variants = Array.isArray(variantsRaw)
+        ? variantsRaw.map((v) => ({
+            id: (v === null || v === void 0 ? void 0 : v.id) || (v === null || v === void 0 ? void 0 : v._id) || (v === null || v === void 0 ? void 0 : v.skuId) || (v === null || v === void 0 ? void 0 : v.sku) || "",
+            name: (v === null || v === void 0 ? void 0 : v.name) || (v === null || v === void 0 ? void 0 : v.title) || (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.skuAttributes) || "",
+            sku: (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.code) || (v === null || v === void 0 ? void 0 : v.skuId) || "",
+            price: Number((v === null || v === void 0 ? void 0 : v.price) || (v === null || v === void 0 ? void 0 : v.salePrice) || (v === null || v === void 0 ? void 0 : v.offerPrice) || 0) || undefined,
+            image: normalizeImageUrl((v === null || v === void 0 ? void 0 : v.image) || (v === null || v === void 0 ? void 0 : v.imageUrl) || (v === null || v === void 0 ? void 0 : v.mainImage) || (v === null || v === void 0 ? void 0 : v.pic) || (v === null || v === void 0 ? void 0 : v.picUrl) || (v === null || v === void 0 ? void 0 : v.thumb) || (v === null || v === void 0 ? void 0 : v.thumbnail)) || undefined,
+        }))
+        : [];
+    return {
+        id: (item === null || item === void 0 ? void 0 : item.id) || (item === null || item === void 0 ? void 0 : item._id) || (item === null || item === void 0 ? void 0 : item.productId) || (item === null || item === void 0 ? void 0 : item.offerId) || (item === null || item === void 0 ? void 0 : item.pid) || "",
+        name: (item === null || item === void 0 ? void 0 : item.name) ||
+            (item === null || item === void 0 ? void 0 : item.title) ||
+            (item === null || item === void 0 ? void 0 : item.productName) ||
+            (item === null || item === void 0 ? void 0 : item.subject) ||
+            (item === null || item === void 0 ? void 0 : item.subjectTrans) ||
+            "منتج",
+        image: (images === null || images === void 0 ? void 0 : images[0]) || "",
+        images,
+        price: Number((item === null || item === void 0 ? void 0 : item.price) || (item === null || item === void 0 ? void 0 : item.minPrice) || (item === null || item === void 0 ? void 0 : item.offerPrice) || (item === null || item === void 0 ? void 0 : item.wholesalePrice) || 0) || 0,
+        sale_price: Number((item === null || item === void 0 ? void 0 : item.sale_price) || (item === null || item === void 0 ? void 0 : item.salePrice) || (item === null || item === void 0 ? void 0 : item.price) || (item === null || item === void 0 ? void 0 : item.minPrice) || 0) || 0,
+        category: (item === null || item === void 0 ? void 0 : item.category) || (item === null || item === void 0 ? void 0 : item.categoryName) || (item === null || item === void 0 ? void 0 : item.catName) || "",
+        sku: (item === null || item === void 0 ? void 0 : item.sku) || (item === null || item === void 0 ? void 0 : item.code) || "",
+        description: (item === null || item === void 0 ? void 0 : item.description) || (item === null || item === void 0 ? void 0 : item.desc) || (item === null || item === void 0 ? void 0 : item.title) || "",
+        variants,
+        stock: (_b = (_a = item === null || item === void 0 ? void 0 : item.stock) !== null && _a !== void 0 ? _a : item === null || item === void 0 ? void 0 : item.quantity) !== null && _b !== void 0 ? _b : undefined,
+        raw: item,
+    };
 }
 // ==================== اختبار الاتصال ====================
 // يستخدم GET /orders/{id} - إذا عاد 400/404 JSON يعني الـ API key صحيح
@@ -258,7 +462,29 @@ async function testConnection(apiKey, email, password) {
 }
 // ==================== منتجات (API داخلي غير رسمي) ====================
 async function searchProducts(params) {
-    var _a, _b;
+    var _a, _b, _c;
+    // 1) كتالوج Yakkyofy/1688 عبر V2 (أقرب لما يظهر داخل المنصة)
+    try {
+        const v2 = await internalV2Fetch("/1688-catalogue", {
+            params: {
+                page: params.page || 1,
+                perPage: params.per_page || 20,
+                category: params.category,
+                keyword: params.keyword,
+            },
+        });
+        const listRaw = extractProductList(v2);
+        const list = listRaw.map(normalizeProduct);
+        return {
+            data: list,
+            total: ((_a = v2 === null || v2 === void 0 ? void 0 : v2.pagination) === null || _a === void 0 ? void 0 : _a.total) || (v2 === null || v2 === void 0 ? void 0 : v2.total) || list.length,
+            raw: v2,
+            source: "v2-1688-catalogue",
+        };
+    }
+    catch (_d) {
+        // fallback to V1 internal endpoints
+    }
     const commonParams = {
         page: params.page || 1,
         per_page: params.per_page || 20,
@@ -284,17 +510,19 @@ async function searchProducts(params) {
             const res = await attempt();
             const list = extractProductList(res);
             if (list.length > 0) {
+                const normalized = list.map(normalizeProduct);
                 return {
-                    data: list,
-                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_a = res === null || res === void 0 ? void 0 : res.meta) === null || _a === void 0 ? void 0 : _a.total) || (res === null || res === void 0 ? void 0 : res.count) || list.length,
+                    data: normalized,
+                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_b = res === null || res === void 0 ? void 0 : res.meta) === null || _b === void 0 ? void 0 : _b.total) || (res === null || res === void 0 ? void 0 : res.count) || normalized.length,
                     raw: res,
                 };
             }
             // إذا لم نجد عناصر، نرجع أول رد ناجح بدلاً من رمي خطأ
             if (res) {
+                const normalized = extractProductList(res).map(normalizeProduct);
                 return {
-                    data: extractProductList(res),
-                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_b = res === null || res === void 0 ? void 0 : res.meta) === null || _b === void 0 ? void 0 : _b.total) || (res === null || res === void 0 ? void 0 : res.count) || 0,
+                    data: normalized,
+                    total: (res === null || res === void 0 ? void 0 : res.total) || ((_c = res === null || res === void 0 ? void 0 : res.meta) === null || _c === void 0 ? void 0 : _c.total) || (res === null || res === void 0 ? void 0 : res.count) || normalized.length || 0,
                     raw: res,
                 };
             }
@@ -307,10 +535,20 @@ async function searchProducts(params) {
 }
 async function getProductDetail(productId) {
     try {
-        return await internalFetch(`/products/${productId}`);
+        const v2 = await internalV2Fetch(`/1688-catalogue/${productId}`);
+        const base = (v2 === null || v2 === void 0 ? void 0 : v2.data) || v2;
+        return normalizeProduct(base);
     }
     catch (_a) {
-        return await internalFetch(`/products/edit/${productId}`);
+        // fallback to V1
+    }
+    try {
+        const v1 = await internalFetch(`/products/${productId}`);
+        return normalizeProduct((v1 === null || v1 === void 0 ? void 0 : v1.data) || v1);
+    }
+    catch (_b) {
+        const v1edit = await internalFetch(`/products/edit/${productId}`);
+        return normalizeProduct((v1edit === null || v1edit === void 0 ? void 0 : v1edit.data) || v1edit);
     }
 }
 async function getProductVariants(productId) {

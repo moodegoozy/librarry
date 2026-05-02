@@ -289,10 +289,48 @@ const YakkyofyProducts: React.FC = () => {
               const sellingPrice = calculateYakkyofySellingPrice(price, rate, markup);
 
               return (
-                <div key={product.id} className="yak-product-card">
+                <div
+                  key={product.id}
+                  className="yak-product-card"
+                  onClick={() => handleViewDetail(product.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleViewDetail(product.id);
+                    }
+                  }}
+                >
                   <div className="yak-product-image">
                     {img ? (
-                      <img src={img} alt={product.name} loading="lazy" />
+                      <img
+                        src={img}
+                        alt={product.name}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          // جرب باقي الصور المتاحة قبل الإستسلام
+                          const all = Array.isArray(product.images) ? product.images : [];
+                          const tried = Number(el.dataset.tried || "0");
+                          const next = all[tried + 1];
+                          if (next && next !== el.src) {
+                            el.dataset.tried = String(tried + 1);
+                            el.src = next;
+                          } else {
+                            el.style.display = "none";
+                            const parent = el.parentElement;
+                            if (parent && !parent.querySelector(".no-image")) {
+                              const ph = document.createElement("div");
+                              ph.className = "no-image";
+                              ph.innerHTML =
+                                '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+                              parent.appendChild(ph);
+                            }
+                          }
+                        }}
+                      />
                     ) : (
                       <div className="no-image">
                         <Package size={40} />
@@ -319,7 +357,10 @@ const YakkyofyProducts: React.FC = () => {
                   </div>
                   <button
                     className="btn-view-detail"
-                    onClick={() => handleViewDetail(product.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetail(product.id);
+                    }}
                   >
                     <Plus size={16} />
                     استيراد
@@ -377,6 +418,19 @@ const YakkyofyProducts: React.FC = () => {
                     <img
                       src={getProductImage(productDetail)}
                       alt={productDetail.name}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        const all = Array.isArray(productDetail.images) ? productDetail.images : [];
+                        const tried = Number(el.dataset.tried || "0");
+                        const next = all[tried + 1];
+                        if (next && next !== el.src) {
+                          el.dataset.tried = String(tried + 1);
+                          el.src = next;
+                        } else {
+                          el.style.display = "none";
+                        }
+                      }}
                     />
                   ) : (
                     <div className="no-image-lg">
