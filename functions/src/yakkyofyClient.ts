@@ -380,6 +380,9 @@ function collectImages(item: any): string[] {
     typeof item.productImage === "string" ? item.productImage : null,
     productImageObj?.url,
     productImageObj?.src,
+    item.imgUrl,
+    item.img_url,
+    item.img,
     item.mainImage,
     item.mainImageUrl,
     item.mainPic,
@@ -422,24 +425,53 @@ function normalizeProduct(item: any): any {
     }))
     : [];
 
+  // الأسعار قد تكون نصاً ("4.00") أو رقماً
+  const toNum = (v: any): number => {
+    if (v === null || v === undefined || v === "") return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const priceUsd = toNum(
+    item?.priceUsd ?? item?.price_usd ?? item?.usdPrice ?? item?.salePriceUsd,
+  );
+  const priceLocal = toNum(
+    item?.price ?? item?.minPrice ?? item?.offerPrice ?? item?.wholesalePrice,
+  );
+  // إذا priceUsd موجود نستخدمه، وإلا نستخدم price
+  const finalPrice = priceUsd > 0 ? priceUsd : priceLocal;
+
   return {
-    id: item?.id || item?._id || item?.productId || item?.offerId || item?.pid || "",
+    id:
+      item?.id ||
+      item?._id ||
+      item?.itemId ||
+      item?.productId ||
+      item?.offerId ||
+      item?.pid ||
+      "",
     name:
+      item?.translateTitle ||
+      item?.titleEn ||
       item?.name ||
       item?.title ||
       item?.productName ||
-      item?.subject ||
       item?.subjectTrans ||
+      item?.subject ||
       "منتج",
     image: images?.[0] || "",
     images,
-    price:
-      Number(item?.price || item?.minPrice || item?.offerPrice || item?.wholesalePrice || 0) || 0,
+    price: finalPrice,
     sale_price:
-      Number(item?.sale_price || item?.salePrice || item?.price || item?.minPrice || 0) || 0,
+      toNum(item?.sale_price || item?.salePrice) || finalPrice,
     category: item?.category || item?.categoryName || item?.catName || "",
-    sku: item?.sku || item?.code || "",
-    description: item?.description || item?.desc || item?.title || "",
+    sku: item?.sku || item?.code || item?.itemId || "",
+    description:
+      item?.description ||
+      item?.desc ||
+      item?.translateTitle ||
+      item?.title ||
+      "",
     variants,
     stock: item?.stock ?? item?.quantity ?? undefined,
     raw: item,
@@ -578,21 +610,33 @@ export async function searchProducts(params: {
 }
 
 export async function getProductDetail(productId: string): Promise<any> {
-  try {
-    const v2 = await internalV2Fetch(`/1688-catalogue/${productId}`);
-    const base = v2?.data || v2;
-    return normalizeProduct(base);
-  } catch {
-    // fallback to V1
+  const attempts: Array<{ label: string; fn: () => Promise<any> }> = [
+    { label: "v2 /1688-catalogue/{id}", fn: () => internalV2Fetch(`/1688-catalogue/${productId}`) },
+    { label: "v2 /1688-catalogue/detail/{id}", fn: () => internalV2Fetch(`/1688-catalogue/detail/${productId}`) },
+    { label: "v2 /1688-catalogue?itemId", fn: () => internalV2Fetch(`/1688-catalogue`, { params: { itemId: productId } }) },
+    { label: "v2 /1688-catalogue/item/{id}", fn: () => internalV2Fetch(`/1688-catalogue/item/${productId}`) },
+    { label: "v1 /products/{id}", fn: () => internalFetch(`/products/${productId}`) },
+    { label: "v1 /products/edit/{id}", fn: () => internalFetch(`/products/edit/${productId}`) },
+  ];
+
+  let lastError: any = null;
+  for (const a of attempts) {
+    try {
+      const res = await a.fn();
+      const base = res?.data || res;
+      // إذا كان رد عبارة عن قائمة، نأخذ أول عنصر
+      const candidate = Array.isArray(base) ? base[0] : base;
+      if (candidate && typeof candidate === "object" && Object.keys(candidate).length > 1) {
+        console.log(`[yakkyofy] detail ok via ${a.label}, keys:`, Object.keys(candidate));
+        return normalizeProduct(candidate);
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.log(`[yakkyofy] detail attempt ${a.label} failed: ${err?.message || err}`);
+    }
   }
 
-  try {
-    const v1 = await internalFetch(`/products/${productId}`);
-    return normalizeProduct(v1?.data || v1);
-  } catch {
-    const v1edit = await internalFetch(`/products/edit/${productId}`);
-    return normalizeProduct(v1edit?.data || v1edit);
-  }
+  throw lastError || new Error("تعذر جلب تفاصيل منتج Yakkyofy.");
 }
 
 export async function getProductVariants(productId: string): Promise<any> {

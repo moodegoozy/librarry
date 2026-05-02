@@ -363,6 +363,9 @@ function collectImages(item) {
         typeof item.productImage === "string" ? item.productImage : null,
         productImageObj === null || productImageObj === void 0 ? void 0 : productImageObj.url,
         productImageObj === null || productImageObj === void 0 ? void 0 : productImageObj.src,
+        item.imgUrl,
+        item.img_url,
+        item.img,
         item.mainImage,
         item.mainImageUrl,
         item.mainPic,
@@ -387,7 +390,7 @@ function collectImages(item) {
     return dedupeImages(all.map(normalizeImageUrl).filter(Boolean));
 }
 function normalizeProduct(item) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const images = collectImages(item);
     const variantsRaw = (item === null || item === void 0 ? void 0 : item.variants) || (item === null || item === void 0 ? void 0 : item.skus) || (item === null || item === void 0 ? void 0 : item.skuList) || (item === null || item === void 0 ? void 0 : item.skuInfos) || [];
     const variants = Array.isArray(variantsRaw)
@@ -399,23 +402,46 @@ function normalizeProduct(item) {
             image: normalizeImageUrl((v === null || v === void 0 ? void 0 : v.image) || (v === null || v === void 0 ? void 0 : v.imageUrl) || (v === null || v === void 0 ? void 0 : v.mainImage) || (v === null || v === void 0 ? void 0 : v.pic) || (v === null || v === void 0 ? void 0 : v.picUrl) || (v === null || v === void 0 ? void 0 : v.thumb) || (v === null || v === void 0 ? void 0 : v.thumbnail)) || undefined,
         }))
         : [];
+    // الأسعار قد تكون نصاً ("4.00") أو رقماً
+    const toNum = (v) => {
+        if (v === null || v === undefined || v === "")
+            return 0;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+    const priceUsd = toNum((_c = (_b = (_a = item === null || item === void 0 ? void 0 : item.priceUsd) !== null && _a !== void 0 ? _a : item === null || item === void 0 ? void 0 : item.price_usd) !== null && _b !== void 0 ? _b : item === null || item === void 0 ? void 0 : item.usdPrice) !== null && _c !== void 0 ? _c : item === null || item === void 0 ? void 0 : item.salePriceUsd);
+    const priceLocal = toNum((_f = (_e = (_d = item === null || item === void 0 ? void 0 : item.price) !== null && _d !== void 0 ? _d : item === null || item === void 0 ? void 0 : item.minPrice) !== null && _e !== void 0 ? _e : item === null || item === void 0 ? void 0 : item.offerPrice) !== null && _f !== void 0 ? _f : item === null || item === void 0 ? void 0 : item.wholesalePrice);
+    // إذا priceUsd موجود نستخدمه، وإلا نستخدم price
+    const finalPrice = priceUsd > 0 ? priceUsd : priceLocal;
     return {
-        id: (item === null || item === void 0 ? void 0 : item.id) || (item === null || item === void 0 ? void 0 : item._id) || (item === null || item === void 0 ? void 0 : item.productId) || (item === null || item === void 0 ? void 0 : item.offerId) || (item === null || item === void 0 ? void 0 : item.pid) || "",
-        name: (item === null || item === void 0 ? void 0 : item.name) ||
+        id: (item === null || item === void 0 ? void 0 : item.id) ||
+            (item === null || item === void 0 ? void 0 : item._id) ||
+            (item === null || item === void 0 ? void 0 : item.itemId) ||
+            (item === null || item === void 0 ? void 0 : item.productId) ||
+            (item === null || item === void 0 ? void 0 : item.offerId) ||
+            (item === null || item === void 0 ? void 0 : item.pid) ||
+            "",
+        name: (item === null || item === void 0 ? void 0 : item.translateTitle) ||
+            (item === null || item === void 0 ? void 0 : item.titleEn) ||
+            (item === null || item === void 0 ? void 0 : item.name) ||
             (item === null || item === void 0 ? void 0 : item.title) ||
             (item === null || item === void 0 ? void 0 : item.productName) ||
-            (item === null || item === void 0 ? void 0 : item.subject) ||
             (item === null || item === void 0 ? void 0 : item.subjectTrans) ||
+            (item === null || item === void 0 ? void 0 : item.subject) ||
             "منتج",
         image: (images === null || images === void 0 ? void 0 : images[0]) || "",
         images,
-        price: Number((item === null || item === void 0 ? void 0 : item.price) || (item === null || item === void 0 ? void 0 : item.minPrice) || (item === null || item === void 0 ? void 0 : item.offerPrice) || (item === null || item === void 0 ? void 0 : item.wholesalePrice) || 0) || 0,
-        sale_price: Number((item === null || item === void 0 ? void 0 : item.sale_price) || (item === null || item === void 0 ? void 0 : item.salePrice) || (item === null || item === void 0 ? void 0 : item.price) || (item === null || item === void 0 ? void 0 : item.minPrice) || 0) || 0,
+        price: finalPrice,
+        sale_price: toNum((item === null || item === void 0 ? void 0 : item.sale_price) || (item === null || item === void 0 ? void 0 : item.salePrice)) || finalPrice,
         category: (item === null || item === void 0 ? void 0 : item.category) || (item === null || item === void 0 ? void 0 : item.categoryName) || (item === null || item === void 0 ? void 0 : item.catName) || "",
-        sku: (item === null || item === void 0 ? void 0 : item.sku) || (item === null || item === void 0 ? void 0 : item.code) || "",
-        description: (item === null || item === void 0 ? void 0 : item.description) || (item === null || item === void 0 ? void 0 : item.desc) || (item === null || item === void 0 ? void 0 : item.title) || "",
+        sku: (item === null || item === void 0 ? void 0 : item.sku) || (item === null || item === void 0 ? void 0 : item.code) || (item === null || item === void 0 ? void 0 : item.itemId) || "",
+        description: (item === null || item === void 0 ? void 0 : item.description) ||
+            (item === null || item === void 0 ? void 0 : item.desc) ||
+            (item === null || item === void 0 ? void 0 : item.translateTitle) ||
+            (item === null || item === void 0 ? void 0 : item.title) ||
+            "",
         variants,
-        stock: (_b = (_a = item === null || item === void 0 ? void 0 : item.stock) !== null && _a !== void 0 ? _a : item === null || item === void 0 ? void 0 : item.quantity) !== null && _b !== void 0 ? _b : undefined,
+        stock: (_h = (_g = item === null || item === void 0 ? void 0 : item.stock) !== null && _g !== void 0 ? _g : item === null || item === void 0 ? void 0 : item.quantity) !== null && _h !== void 0 ? _h : undefined,
         raw: item,
     };
 }
@@ -534,22 +560,32 @@ async function searchProducts(params) {
     throw lastError || new Error("تعذر جلب منتجات Yakkyofy.");
 }
 async function getProductDetail(productId) {
-    try {
-        const v2 = await internalV2Fetch(`/1688-catalogue/${productId}`);
-        const base = (v2 === null || v2 === void 0 ? void 0 : v2.data) || v2;
-        return normalizeProduct(base);
+    const attempts = [
+        { label: "v2 /1688-catalogue/{id}", fn: () => internalV2Fetch(`/1688-catalogue/${productId}`) },
+        { label: "v2 /1688-catalogue/detail/{id}", fn: () => internalV2Fetch(`/1688-catalogue/detail/${productId}`) },
+        { label: "v2 /1688-catalogue?itemId", fn: () => internalV2Fetch(`/1688-catalogue`, { params: { itemId: productId } }) },
+        { label: "v2 /1688-catalogue/item/{id}", fn: () => internalV2Fetch(`/1688-catalogue/item/${productId}`) },
+        { label: "v1 /products/{id}", fn: () => internalFetch(`/products/${productId}`) },
+        { label: "v1 /products/edit/{id}", fn: () => internalFetch(`/products/edit/${productId}`) },
+    ];
+    let lastError = null;
+    for (const a of attempts) {
+        try {
+            const res = await a.fn();
+            const base = (res === null || res === void 0 ? void 0 : res.data) || res;
+            // إذا كان رد عبارة عن قائمة، نأخذ أول عنصر
+            const candidate = Array.isArray(base) ? base[0] : base;
+            if (candidate && typeof candidate === "object" && Object.keys(candidate).length > 1) {
+                console.log(`[yakkyofy] detail ok via ${a.label}, keys:`, Object.keys(candidate));
+                return normalizeProduct(candidate);
+            }
+        }
+        catch (err) {
+            lastError = err;
+            console.log(`[yakkyofy] detail attempt ${a.label} failed: ${(err === null || err === void 0 ? void 0 : err.message) || err}`);
+        }
     }
-    catch (_a) {
-        // fallback to V1
-    }
-    try {
-        const v1 = await internalFetch(`/products/${productId}`);
-        return normalizeProduct((v1 === null || v1 === void 0 ? void 0 : v1.data) || v1);
-    }
-    catch (_b) {
-        const v1edit = await internalFetch(`/products/edit/${productId}`);
-        return normalizeProduct((v1edit === null || v1edit === void 0 ? void 0 : v1edit.data) || v1edit);
-    }
+    throw lastError || new Error("تعذر جلب تفاصيل منتج Yakkyofy.");
 }
 async function getProductVariants(productId) {
     var _a;
