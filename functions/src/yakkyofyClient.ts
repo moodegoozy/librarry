@@ -412,16 +412,83 @@ function normalizeProduct(item: any): any {
   const images = collectImages(item);
 
   const variantsRaw = item?.variants || item?.skus || item?.skuList || item?.skuInfos || [];
+
+  // محاولة بناء اسم وصفي للمتغير من قائمة الخصائص
+  const buildVariantName = (v: any): string => {
+    // 1) اسم نصي جاهز
+    const direct =
+      v?.name ||
+      v?.title ||
+      v?.specName ||
+      v?.attributesName ||
+      v?.skuName ||
+      v?.skuAttributesName ||
+      v?.specAttribute ||
+      "";
+    if (typeof direct === "string" && direct.trim()) return direct.trim();
+
+    // 2) قائمة خصائص (لون/حجم...): saleAttrs / attributes / skuAttributes / properties / props
+    const attrSources = [
+      v?.saleAttrs,
+      v?.skuAttributes,
+      v?.attributes,
+      v?.properties,
+      v?.props,
+      v?.specs,
+      v?.attributeList,
+      v?.values,
+    ];
+    for (const src of attrSources) {
+      if (Array.isArray(src) && src.length) {
+        const parts = src
+          .map((a: any) => {
+            if (typeof a === "string") return a;
+            const key =
+              a?.name ||
+              a?.attributeName ||
+              a?.attributeNameTrans ||
+              a?.key ||
+              a?.title ||
+              "";
+            const val =
+              a?.value ||
+              a?.valueTrans ||
+              a?.attributeValue ||
+              a?.attributeValueTrans ||
+              a?.text ||
+              "";
+            if (key && val) return `${key}: ${val}`;
+            return val || key || "";
+          })
+          .filter(Boolean);
+        if (parts.length) return parts.join(" • ");
+      } else if (src && typeof src === "object") {
+        const parts = Object.entries(src)
+          .map(([k, val]) => `${k}: ${typeof val === "object" ? JSON.stringify(val) : val}`)
+          .filter(Boolean);
+        if (parts.length) return parts.join(" • ");
+      }
+    }
+
+    // 3) سلسلة skuAttributes كنص (مثل "color:Red;size:XL")
+    if (typeof v?.skuAttributes === "string") return v.skuAttributes;
+    if (typeof v?.attributes === "string") return v.attributes;
+
+    // 4) آخر حل: SKU ID
+    return v?.sku || v?.skuId || String(v?.id || "");
+  };
+
   const variants = Array.isArray(variantsRaw)
     ? variantsRaw.map((v: any) => ({
       id: v?.id || v?._id || v?.skuId || v?.sku || "",
-      name: v?.name || v?.title || v?.sku || v?.skuAttributes || "",
+      name: buildVariantName(v),
       sku: v?.sku || v?.code || v?.skuId || "",
       price: Number(v?.price || v?.salePrice || v?.offerPrice || 0) || undefined,
       image:
         normalizeImageUrl(
           v?.image || v?.imageUrl || v?.mainImage || v?.pic || v?.picUrl || v?.thumb || v?.thumbnail,
         ) || undefined,
+      stock: v?.stock ?? v?.quantity ?? v?.amountOnSale ?? undefined,
     }))
     : [];
 
@@ -628,6 +695,19 @@ export async function getProductDetail(productId: string): Promise<any> {
       const candidate = Array.isArray(base) ? base[0] : base;
       if (candidate && typeof candidate === "object" && Object.keys(candidate).length > 1) {
         console.log(`[yakkyofy] detail ok via ${a.label}, keys:`, Object.keys(candidate));
+        const variantsArr = candidate?.variants || candidate?.skus || candidate?.skuList;
+        if (Array.isArray(variantsArr) && variantsArr.length > 0) {
+          console.log(
+            "[yakkyofy] sample variant:",
+            JSON.stringify(variantsArr[0], null, 2).substring(0, 1200),
+          );
+        }
+        if (candidate?.productAttributes) {
+          console.log(
+            "[yakkyofy] productAttributes sample:",
+            JSON.stringify(candidate.productAttributes, null, 2).substring(0, 800),
+          );
+        }
         return normalizeProduct(candidate);
       }
     } catch (err: any) {

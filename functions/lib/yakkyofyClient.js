@@ -393,14 +393,84 @@ function normalizeProduct(item) {
     var _a, _b, _c, _d, _e, _f, _g, _h;
     const images = collectImages(item);
     const variantsRaw = (item === null || item === void 0 ? void 0 : item.variants) || (item === null || item === void 0 ? void 0 : item.skus) || (item === null || item === void 0 ? void 0 : item.skuList) || (item === null || item === void 0 ? void 0 : item.skuInfos) || [];
+    // محاولة بناء اسم وصفي للمتغير من قائمة الخصائص
+    const buildVariantName = (v) => {
+        // 1) اسم نصي جاهز
+        const direct = (v === null || v === void 0 ? void 0 : v.name) ||
+            (v === null || v === void 0 ? void 0 : v.title) ||
+            (v === null || v === void 0 ? void 0 : v.specName) ||
+            (v === null || v === void 0 ? void 0 : v.attributesName) ||
+            (v === null || v === void 0 ? void 0 : v.skuName) ||
+            (v === null || v === void 0 ? void 0 : v.skuAttributesName) ||
+            (v === null || v === void 0 ? void 0 : v.specAttribute) ||
+            "";
+        if (typeof direct === "string" && direct.trim())
+            return direct.trim();
+        // 2) قائمة خصائص (لون/حجم...): saleAttrs / attributes / skuAttributes / properties / props
+        const attrSources = [
+            v === null || v === void 0 ? void 0 : v.saleAttrs,
+            v === null || v === void 0 ? void 0 : v.skuAttributes,
+            v === null || v === void 0 ? void 0 : v.attributes,
+            v === null || v === void 0 ? void 0 : v.properties,
+            v === null || v === void 0 ? void 0 : v.props,
+            v === null || v === void 0 ? void 0 : v.specs,
+            v === null || v === void 0 ? void 0 : v.attributeList,
+            v === null || v === void 0 ? void 0 : v.values,
+        ];
+        for (const src of attrSources) {
+            if (Array.isArray(src) && src.length) {
+                const parts = src
+                    .map((a) => {
+                    if (typeof a === "string")
+                        return a;
+                    const key = (a === null || a === void 0 ? void 0 : a.name) ||
+                        (a === null || a === void 0 ? void 0 : a.attributeName) ||
+                        (a === null || a === void 0 ? void 0 : a.attributeNameTrans) ||
+                        (a === null || a === void 0 ? void 0 : a.key) ||
+                        (a === null || a === void 0 ? void 0 : a.title) ||
+                        "";
+                    const val = (a === null || a === void 0 ? void 0 : a.value) ||
+                        (a === null || a === void 0 ? void 0 : a.valueTrans) ||
+                        (a === null || a === void 0 ? void 0 : a.attributeValue) ||
+                        (a === null || a === void 0 ? void 0 : a.attributeValueTrans) ||
+                        (a === null || a === void 0 ? void 0 : a.text) ||
+                        "";
+                    if (key && val)
+                        return `${key}: ${val}`;
+                    return val || key || "";
+                })
+                    .filter(Boolean);
+                if (parts.length)
+                    return parts.join(" • ");
+            }
+            else if (src && typeof src === "object") {
+                const parts = Object.entries(src)
+                    .map(([k, val]) => `${k}: ${typeof val === "object" ? JSON.stringify(val) : val}`)
+                    .filter(Boolean);
+                if (parts.length)
+                    return parts.join(" • ");
+            }
+        }
+        // 3) سلسلة skuAttributes كنص (مثل "color:Red;size:XL")
+        if (typeof (v === null || v === void 0 ? void 0 : v.skuAttributes) === "string")
+            return v.skuAttributes;
+        if (typeof (v === null || v === void 0 ? void 0 : v.attributes) === "string")
+            return v.attributes;
+        // 4) آخر حل: SKU ID
+        return (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.skuId) || String((v === null || v === void 0 ? void 0 : v.id) || "");
+    };
     const variants = Array.isArray(variantsRaw)
-        ? variantsRaw.map((v) => ({
-            id: (v === null || v === void 0 ? void 0 : v.id) || (v === null || v === void 0 ? void 0 : v._id) || (v === null || v === void 0 ? void 0 : v.skuId) || (v === null || v === void 0 ? void 0 : v.sku) || "",
-            name: (v === null || v === void 0 ? void 0 : v.name) || (v === null || v === void 0 ? void 0 : v.title) || (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.skuAttributes) || "",
-            sku: (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.code) || (v === null || v === void 0 ? void 0 : v.skuId) || "",
-            price: Number((v === null || v === void 0 ? void 0 : v.price) || (v === null || v === void 0 ? void 0 : v.salePrice) || (v === null || v === void 0 ? void 0 : v.offerPrice) || 0) || undefined,
-            image: normalizeImageUrl((v === null || v === void 0 ? void 0 : v.image) || (v === null || v === void 0 ? void 0 : v.imageUrl) || (v === null || v === void 0 ? void 0 : v.mainImage) || (v === null || v === void 0 ? void 0 : v.pic) || (v === null || v === void 0 ? void 0 : v.picUrl) || (v === null || v === void 0 ? void 0 : v.thumb) || (v === null || v === void 0 ? void 0 : v.thumbnail)) || undefined,
-        }))
+        ? variantsRaw.map((v) => {
+            var _a, _b, _c;
+            return ({
+                id: (v === null || v === void 0 ? void 0 : v.id) || (v === null || v === void 0 ? void 0 : v._id) || (v === null || v === void 0 ? void 0 : v.skuId) || (v === null || v === void 0 ? void 0 : v.sku) || "",
+                name: buildVariantName(v),
+                sku: (v === null || v === void 0 ? void 0 : v.sku) || (v === null || v === void 0 ? void 0 : v.code) || (v === null || v === void 0 ? void 0 : v.skuId) || "",
+                price: Number((v === null || v === void 0 ? void 0 : v.price) || (v === null || v === void 0 ? void 0 : v.salePrice) || (v === null || v === void 0 ? void 0 : v.offerPrice) || 0) || undefined,
+                image: normalizeImageUrl((v === null || v === void 0 ? void 0 : v.image) || (v === null || v === void 0 ? void 0 : v.imageUrl) || (v === null || v === void 0 ? void 0 : v.mainImage) || (v === null || v === void 0 ? void 0 : v.pic) || (v === null || v === void 0 ? void 0 : v.picUrl) || (v === null || v === void 0 ? void 0 : v.thumb) || (v === null || v === void 0 ? void 0 : v.thumbnail)) || undefined,
+                stock: (_c = (_b = (_a = v === null || v === void 0 ? void 0 : v.stock) !== null && _a !== void 0 ? _a : v === null || v === void 0 ? void 0 : v.quantity) !== null && _b !== void 0 ? _b : v === null || v === void 0 ? void 0 : v.amountOnSale) !== null && _c !== void 0 ? _c : undefined,
+            });
+        })
         : [];
     // الأسعار قد تكون نصاً ("4.00") أو رقماً
     const toNum = (v) => {
@@ -577,6 +647,13 @@ async function getProductDetail(productId) {
             const candidate = Array.isArray(base) ? base[0] : base;
             if (candidate && typeof candidate === "object" && Object.keys(candidate).length > 1) {
                 console.log(`[yakkyofy] detail ok via ${a.label}, keys:`, Object.keys(candidate));
+                const variantsArr = (candidate === null || candidate === void 0 ? void 0 : candidate.variants) || (candidate === null || candidate === void 0 ? void 0 : candidate.skus) || (candidate === null || candidate === void 0 ? void 0 : candidate.skuList);
+                if (Array.isArray(variantsArr) && variantsArr.length > 0) {
+                    console.log("[yakkyofy] sample variant:", JSON.stringify(variantsArr[0], null, 2).substring(0, 1200));
+                }
+                if (candidate === null || candidate === void 0 ? void 0 : candidate.productAttributes) {
+                    console.log("[yakkyofy] productAttributes sample:", JSON.stringify(candidate.productAttributes, null, 2).substring(0, 800));
+                }
                 return normalizeProduct(candidate);
             }
         }
