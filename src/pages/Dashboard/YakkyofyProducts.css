@@ -386,10 +386,57 @@
 
 .modal-prices {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
   font-size: 13px;
   color: var(--dark);
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.modal-prices .price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modal-prices .price-row .label {
+  min-width: 130px;
+  color: var(--gray, #64748b);
+  font-weight: 500;
+}
+
+.modal-prices .price-row strong {
+  font-weight: 700;
+  color: var(--dark);
+}
+
+.modal-prices .price-row.supplier strong {
+  color: #0ea5e9;
+}
+
+.modal-prices .price-row.markup strong {
+  color: #f59e0b;
+}
+
+.modal-prices .price-row.selling {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.modal-prices .price-row.selling strong {
+  color: #16a34a;
+  font-size: 16px;
+}
+
+.modal-prices .price-row .muted {
+  color: var(--gray, #94a3b8);
+  font-size: 12px;
 }
 
 /* Variants */

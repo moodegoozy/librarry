@@ -122,30 +122,55 @@ const YakkyofyProducts: React.FC = () => {
     }
   };
 
-  const handleViewDetail = async (productId: number | string) => {
-    setDetailLoading(true);
+  const handleViewDetail = async (product: YakkyofyProduct) => {
+    // اعرض بيانات المنتج فوراً من قائمة البحث (تحتوي السعر والصورة)
     setDetailModal(true);
-    setProductDetail(null);
+    setProductDetail(product);
+    setImportName(product.name || "");
+    setImportNameAr("");
+    setImportCategory("");
+
+    const markup = settings?.defaultMarkup ?? 30;
+    const rate = settings?.usdToSar ?? 3.75;
+    const initPrice = product.sale_price ?? product.price ?? 0;
+    setImportPrice(calculateYakkyofySellingPrice(initPrice, rate, markup));
+
+    if (product.variants?.length) {
+      setSelectedVariant(String(product.variants[0].id));
+    } else {
+      setSelectedVariant("");
+    }
+
+    if (!product.id) return;
+
+    // حاول جلب تفاصيل أعمق في الخلفية (صور إضافية، وصف، متغيرات)
+    setDetailLoading(true);
     try {
-      const result = await getYakkyofyProductDetail(String(productId));
+      const result = await getYakkyofyProductDetail(String(product.id));
       const detail: YakkyofyProduct = result?.data || result;
-      setProductDetail(detail);
-      setImportName(detail.name || "");
-      setImportNameAr("");
-      setImportCategory("");
-
-      const markup = settings?.defaultMarkup ?? 30;
-      const rate = settings?.usdToSar ?? 3.75;
-      const price = detail.sale_price ?? detail.price ?? 0;
-      setImportPrice(calculateYakkyofySellingPrice(price, rate, markup));
-
-      if (detail.variants?.length) {
-        setSelectedVariant(String(detail.variants[0].id));
+      if (detail && (detail.id || detail.name)) {
+        // دمج البيانات: التفاصيل تغلب، لكن نحافظ على السعر والصورة إن فقدا في التفاصيل
+        const merged: YakkyofyProduct = {
+          ...product,
+          ...detail,
+          images:
+            (detail.images && detail.images.length ? detail.images : product.images) || [],
+          image: detail.image || product.image,
+          price: detail.price || product.price,
+          sale_price: detail.sale_price || product.sale_price,
+          name: detail.name || product.name,
+          description: detail.description || product.description,
+        };
+        setProductDetail(merged);
+        setImportName(merged.name || "");
+        const finalPrice = merged.sale_price ?? merged.price ?? initPrice;
+        setImportPrice(calculateYakkyofySellingPrice(finalPrice, rate, markup));
+        if (merged.variants?.length && !selectedVariant) {
+          setSelectedVariant(String(merged.variants[0].id));
+        }
       }
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "خطأ في جلب التفاصيل";
-      showToast(msg, "error");
-      setDetailModal(false);
+    } catch {
+      // لا بأس — بيانات قائمة البحث كافية للاستيراد
     } finally {
       setDetailLoading(false);
     }
@@ -292,13 +317,13 @@ const YakkyofyProducts: React.FC = () => {
                 <div
                   key={product.id}
                   className="yak-product-card"
-                  onClick={() => handleViewDetail(product.id)}
+                  onClick={() => handleViewDetail(product)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      handleViewDetail(product.id);
+                      handleViewDetail(product);
                     }
                   }}
                 >
@@ -359,7 +384,7 @@ const YakkyofyProducts: React.FC = () => {
                     className="btn-view-detail"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleViewDetail(product.id);
+                      handleViewDetail(product);
                     }}
                   >
                     <Plus size={16} />
@@ -442,17 +467,47 @@ const YakkyofyProducts: React.FC = () => {
                     {productDetail.sku && (
                       <span className="sku-badge">SKU: {productDetail.sku}</span>
                     )}
-                    <div className="modal-prices">
-                      <span>
-                        سعر المورد:{" "}
-                        <strong>
-                          ${(productDetail.sale_price ?? productDetail.price ?? 0).toFixed(2)}
-                        </strong>
-                      </span>
-                      <span>
-                        = {((productDetail.sale_price ?? productDetail.price ?? 0) * (settings?.usdToSar ?? 3.75)).toFixed(2)} ر.س
-                      </span>
-                    </div>
+                    {(() => {
+                      const supplierUsd =
+                        productDetail.sale_price ?? productDetail.price ?? 0;
+                      const rate = settings?.usdToSar ?? 3.75;
+                      const markup = settings?.defaultMarkup ?? 30;
+                      const supplierSar = supplierUsd * rate;
+                      const sellingSar = calculateYakkyofySellingPrice(
+                        supplierUsd,
+                        rate,
+                        markup,
+                      );
+                      const profitSar = sellingSar - supplierSar;
+                      return (
+                        <div className="modal-prices">
+                          <div className="price-row supplier">
+                            <span className="label">سعر المورد:</span>
+                            <strong>${supplierUsd.toFixed(2)}</strong>
+                            <span className="muted">
+                              ≈ {supplierSar.toLocaleString("ar-SA", {
+                                maximumFractionDigits: 2,
+                              })} ر.س
+                            </span>
+                          </div>
+                          <div className="price-row markup">
+                            <span className="label">هامش الربح:</span>
+                            <strong>{markup}%</strong>
+                            <span className="muted">
+                              (+{profitSar.toLocaleString("ar-SA", {
+                                maximumFractionDigits: 2,
+                              })} ر.س)
+                            </span>
+                          </div>
+                          <div className="price-row selling">
+                            <span className="label">سعر البيع المقترح:</span>
+                            <strong>
+                              {sellingSar.toLocaleString("ar-SA")} ر.س
+                            </strong>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
