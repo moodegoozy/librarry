@@ -47,14 +47,14 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #000000 0%, #1f1f1f 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 20px 40px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .stat-card:hover::before {
@@ -187,7 +187,7 @@
   content: '';
   width: 4px;
   height: 20px;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #000000 0%, #1f1f1f 100%);
   border-radius: 2px;
 }
 
@@ -204,8 +204,8 @@
 }
 
 .chart-filter:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: #000000;
+  color: #000000;
 }
 
 /* Chart Placeholder */
@@ -289,13 +289,13 @@
 }
 
 .bar.active {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  background: linear-gradient(180deg, #000000 0%, #1f1f1f 100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .bar:hover {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  background: linear-gradient(180deg, #000000 0%, #1f1f1f 100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
   transform: scaleY(1.02);
 }
 
@@ -332,9 +332,9 @@
 
 .product-item:hover {
   background: white;
-  border-color: #667eea;
+  border-color: #000000;
   transform: translateX(-6px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .product-rank {
@@ -365,8 +365,8 @@
 }
 
 .product-item:nth-child(n+4) .product-rank {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .product-info {
@@ -429,12 +429,12 @@
   content: '';
   width: 4px;
   height: 20px;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #000000 0%, #1f1f1f 100%);
   border-radius: 2px;
 }
 
 .card-header .view-all {
-  color: #667eea;
+  color: #000000;
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
@@ -447,7 +447,7 @@
 }
 
 .card-header .view-all:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
 }
 

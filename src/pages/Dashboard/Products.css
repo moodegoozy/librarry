@@ -58,8 +58,8 @@
 }
 
 .search-box:focus-within {
-  border-color: #667eea;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+  border-color: #000000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .search-box input {
@@ -79,7 +79,7 @@
 }
 
 .search-box:focus-within svg {
-  color: #667eea;
+  color: #000000;
 }
 
 .filter-buttons {
@@ -101,14 +101,14 @@
 }
 
 .filter-select:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: #000000;
+  color: #000000;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+  border-color: #000000;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -139,8 +139,8 @@
 
 .product-thumb:hover {
   transform: scale(1.08);
-  border-color: #667eea;
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  border-color: #000000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
 .product-cell .product-name {
@@ -223,10 +223,10 @@
 }
 
 .actions-cell .action-btn:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
   transform: scale(1.1);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .actions-cell .action-btn.delete:hover {
@@ -269,16 +269,16 @@
 }
 
 .pagination-btn:hover:not(:disabled) {
-  border-color: #667eea;
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
+  border-color: #000000;
+  color: #000000;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .pagination-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
   border-color: transparent;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .pagination-btn:disabled {

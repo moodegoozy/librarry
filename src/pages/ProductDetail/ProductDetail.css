@@ -150,7 +150,7 @@
 
 .product-category-tag {
   display: inline-block;
-  background: rgba(26, 95, 122, 0.1);
+  background: rgba(0, 0, 0, 0.1);
   color: var(--primary);
   padding: 4px 14px;
   border-radius: 20px;

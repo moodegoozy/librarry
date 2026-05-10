@@ -7,12 +7,12 @@
 :root {
   --premium-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   --premium-gold: linear-gradient(135deg, #c9a227 0%, #f4d03f 50%, #c9a227 100%);
-  --premium-blue: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --premium-blue: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.12);
   --premium-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
   --premium-shadow-sm: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-  --premium-shadow-glow: 0 0 40px rgba(102, 126, 234, 0.3);
+  --premium-shadow-glow: 0 0 40px rgba(0, 0, 0, 0.3);
 }
 
 .dashboard-layout {
@@ -59,7 +59,7 @@
   right: -50%;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -70,7 +70,7 @@
   left: -30%;
   width: 80%;
   height: 80%;
-  background: radial-gradient(circle, rgba(118, 75, 162, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -108,7 +108,7 @@
 
 .sidebar-logo-image:hover {
   transform: scale(1.05) rotate(-2deg);
-  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
 }
 
 .sidebar-logo .logo-text {
@@ -197,9 +197,9 @@
 }
 
 .sidebar-nav .nav-link.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
 }
 
 .sidebar-nav .nav-link.active::after {
@@ -339,10 +339,10 @@
 }
 
 .menu-toggle:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
   transform: scale(1.05);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 .page-title {
@@ -383,10 +383,10 @@
 }
 
 .notification-btn:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
   transform: scale(1.08);
-  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
 .notification-btn.has-notifications {
@@ -469,7 +469,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
 }
 
@@ -576,7 +576,7 @@
 }
 
 .notification-footer a {
-  color: #667eea;
+  color: #000000;
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
@@ -584,7 +584,7 @@
 }
 
 .notification-footer a:hover {
-  color: #764ba2;
+  color: #1f1f1f;
 }
 
 .empty-notifications {
@@ -650,7 +650,7 @@
 
 .user-role {
   font-size: 12px;
-  color: #667eea;
+  color: #000000;
   font-weight: 600;
 }
 
@@ -689,7 +689,7 @@
 
 .user-dropdown-header {
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #000000 0%, #1f1f1f 100%);
   color: white;
   text-align: center;
 }
