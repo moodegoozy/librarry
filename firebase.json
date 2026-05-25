@@ -85,6 +85,10 @@
     ],
     "rewrites": [
       {
+        "source": "/wp-json/**",
+        "function": "wcApi"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

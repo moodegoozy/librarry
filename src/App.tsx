@@ -133,6 +133,10 @@ const YakkyofySettings = lazyWithRetry(
   () => import("./pages/Dashboard/YakkyofySettings"),
   "YakkyofySettings",
 );
+const M5aznSettings = lazyWithRetry(
+  () => import("./pages/Dashboard/M5aznSettings"),
+  "M5aznSettings",
+);
 
 // Styles
 import "./styles/globals.css";
@@ -264,6 +268,7 @@ const App: React.FC = () => {
           <Route path="yakkyofy-products" element={<YakkyofyProducts />} />
           <Route path="yakkyofy-orders" element={<YakkyofyOrders />} />
           <Route path="yakkyofy-settings" element={<YakkyofySettings />} />
+          <Route path="m5azn-settings" element={<M5aznSettings />} />
         </Route>
 
         {/* Store Routes */}

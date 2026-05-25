@@ -6,8 +6,59 @@ import * as paypal from "./paypalClient";
 import * as tamara from "./tamaraClient";
 import { scrapeAmazonProduct, scrapeAmazonWithApi } from "./amazonScraper";
 import { sendOrderConfirmationEmail, sendOrderStatusUpdateEmail } from "./emailService";
+import { randomBytes, createHash } from "crypto";
 
 admin.initializeApp();
+
+// ==================== WooCommerce-compatible REST API (m5azn) ====================
+// Re-export the public HTTP function for m5azn / WooCommerce REST clients
+export { wcApi } from "./wooCommerceApi";
+
+// توليد مفاتيح WooCommerce لمخازن
+export const wooGenerateKeys = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const consumerKey = "ck_" + randomBytes(20).toString("hex");
+    const consumerSecret = "cs_" + randomBytes(20).toString("hex");
+    const consumerSecretHash = createHash("sha256").update(consumerSecret).digest("hex");
+    await admin.firestore().doc("settings/wooKeys").set({
+      consumerKey,
+      consumerSecretHash,
+      enabled: true,
+      rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      provider: "m5azn",
+    }, { merge: true });
+    // نُرجع السر مرة واحدة فقط ولا نخزنه (نُخزن الـ hash)
+    return { consumerKey, consumerSecret };
+  },
+);
+
+// عرض حالة المفاتيح (بدون السر)
+export const wooGetKeysStatus = functions.https.onCall(
+  async (_data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const snap = await admin.firestore().doc("settings/wooKeys").get();
+    if (!snap.exists) return { exists: false };
+    const d = snap.data() as { consumerKey?: string; enabled?: boolean; rotatedAt?: admin.firestore.Timestamp };
+    return {
+      exists: true,
+      consumerKey: d.consumerKey || null,
+      enabled: d.enabled !== false,
+      rotatedAt: d.rotatedAt?.toDate?.()?.toISOString?.() || null,
+    };
+  },
+);
+
+// تفعيل/تعطيل التكامل
+export const wooSetEnabled = functions.https.onCall(
+  async (data, context) => {
+    await verifyAdmin(context.auth ?? undefined);
+    const enabled = !!data?.enabled;
+    await admin.firestore().doc("settings/wooKeys").set({ enabled }, { merge: true });
+    return { ok: true, enabled };
+  },
+);
 
 // التحقق من أن المستخدم أدمن
 async function verifyAdmin(auth: { uid: string } | undefined): Promise<void> {

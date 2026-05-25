@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scrapeProductFromUrl = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetBalance = exports.yakkyofyGetTracking = exports.yakkyofyListOrders = exports.yakkyofyGetCategories = exports.yakkyofyGetProductVariants = exports.yakkyofyGetProductDetail = exports.yakkyofySearchProducts = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = void 0;
+exports.scrapeProductFromUrl = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetBalance = exports.yakkyofyGetTracking = exports.yakkyofyListOrders = exports.yakkyofyGetCategories = exports.yakkyofyGetProductVariants = exports.yakkyofyGetProductDetail = exports.yakkyofySearchProducts = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = exports.wooSetEnabled = exports.wooGetKeysStatus = exports.wooGenerateKeys = exports.wcApi = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const cj = __importStar(require("./cjClient"));
@@ -42,7 +42,53 @@ const paypal = __importStar(require("./paypalClient"));
 const tamara = __importStar(require("./tamaraClient"));
 const amazonScraper_1 = require("./amazonScraper");
 const emailService_1 = require("./emailService");
+const crypto_1 = require("crypto");
 admin.initializeApp();
+// ==================== WooCommerce-compatible REST API (m5azn) ====================
+// Re-export the public HTTP function for m5azn / WooCommerce REST clients
+var wooCommerceApi_1 = require("./wooCommerceApi");
+Object.defineProperty(exports, "wcApi", { enumerable: true, get: function () { return wooCommerceApi_1.wcApi; } });
+// توليد مفاتيح WooCommerce لمخازن
+exports.wooGenerateKeys = functions.https.onCall(async (_data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    const consumerKey = "ck_" + (0, crypto_1.randomBytes)(20).toString("hex");
+    const consumerSecret = "cs_" + (0, crypto_1.randomBytes)(20).toString("hex");
+    const consumerSecretHash = (0, crypto_1.createHash)("sha256").update(consumerSecret).digest("hex");
+    await admin.firestore().doc("settings/wooKeys").set({
+        consumerKey,
+        consumerSecretHash,
+        enabled: true,
+        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        provider: "m5azn",
+    }, { merge: true });
+    // نُرجع السر مرة واحدة فقط ولا نخزنه (نُخزن الـ hash)
+    return { consumerKey, consumerSecret };
+});
+// عرض حالة المفاتيح (بدون السر)
+exports.wooGetKeysStatus = functions.https.onCall(async (_data, context) => {
+    var _a, _b, _c, _d, _e;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    const snap = await admin.firestore().doc("settings/wooKeys").get();
+    if (!snap.exists)
+        return { exists: false };
+    const d = snap.data();
+    return {
+        exists: true,
+        consumerKey: d.consumerKey || null,
+        enabled: d.enabled !== false,
+        rotatedAt: ((_e = (_d = (_c = (_b = d.rotatedAt) === null || _b === void 0 ? void 0 : _b.toDate) === null || _c === void 0 ? void 0 : _c.call(_b)) === null || _d === void 0 ? void 0 : _d.toISOString) === null || _e === void 0 ? void 0 : _e.call(_d)) || null,
+    };
+});
+// تفعيل/تعطيل التكامل
+exports.wooSetEnabled = functions.https.onCall(async (data, context) => {
+    var _a;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    const enabled = !!(data === null || data === void 0 ? void 0 : data.enabled);
+    await admin.firestore().doc("settings/wooKeys").set({ enabled }, { merge: true });
+    return { ok: true, enabled };
+});
 // التحقق من أن المستخدم أدمن
 async function verifyAdmin(auth) {
     if (!auth)

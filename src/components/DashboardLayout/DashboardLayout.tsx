@@ -54,6 +54,10 @@ const yakkyofyMenuItems = [
   { path: "/dashboard/yakkyofy-settings", icon: Settings, label: "إعدادات Yakkyofy" },
 ];
 
+const m5aznMenuItems = [
+  { path: "/dashboard/m5azn-settings", icon: Store, label: "ربط مع مخازن" },
+];
+
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -240,6 +244,37 @@ const DashboardLayout: React.FC = () => {
               </li>
             ))}
           </ul>
+
+          {/* m5azn (مخازن) Section */}
+          <div
+            className="sidebar-section-title"
+            style={{
+              padding: "12px 20px 6px",
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.4)",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              marginTop: "8px",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            مخازن
+          </div>
+          <ul>
+            {m5aznMenuItems.map((item) => (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`nav-link ${isActive(item.path) ? "active" : ""}`}
+                  onClick={handleNavClick}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </nav>
 
         <div className="sidebar-footer">
@@ -259,7 +294,7 @@ const DashboardLayout: React.FC = () => {
               <Menu size={24} />
             </button>
             <h1 className="page-title">
-              {[...menuItems, ...cjMenuItems, ...yakkyofyMenuItems].find((item) =>
+              {[...menuItems, ...cjMenuItems, ...yakkyofyMenuItems, ...m5aznMenuItems].find((item) =>
                 isActive(
                   item.path,
                   "exact" in item
