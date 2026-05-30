@@ -240,6 +240,36 @@
   font-weight: 500;
 }
 
+.bank-details .iban-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bank-details .iban-value {
+  font-family: monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.copy-iban-btn {
+  border: 1px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-iban-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
 /* Tamara Payment */
 .tamara-details {
   margin-top: 1.5rem;

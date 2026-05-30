@@ -457,6 +457,12 @@ export interface StoreSettings {
   payment?: {
     methods: { id: string; name: string; enabled: boolean }[];
   };
+  bank?: {
+    bankName: string;
+    accountName: string;
+    iban: string;
+    note: string;
+  };
   email?: {
     smtpHost: string;
     smtpPort: number;

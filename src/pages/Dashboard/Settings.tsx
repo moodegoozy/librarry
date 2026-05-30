@@ -60,6 +60,13 @@ const Settings: React.FC = () => {
     { id: "tabby", name: "تابي - قسّمها على 4", enabled: true },
   ]);
 
+  const [bankSettings, setBankSettings] = useState({
+    bankName: "",
+    accountName: "",
+    iban: "",
+    note: "يرجى إرسال إيصال التحويل عبر الواتساب",
+  });
+
   const [tamaraSettings, setTamaraSettings] = useState({
     apiToken: "",
     isConnected: false,
@@ -103,6 +110,7 @@ const Settings: React.FC = () => {
             setNotificationSettings(settings.notifications);
           if (settings.payment?.methods)
             setPaymentMethods(settings.payment.methods);
+          if (settings.bank) setBankSettings(settings.bank);
           if (settings.email) setEmailSettings(settings.email);
         }
       } catch (error) {
@@ -120,6 +128,7 @@ const Settings: React.FC = () => {
         shipping: shippingSettings,
         notifications: notificationSettings,
         payment: { methods: paymentMethods },
+        bank: bankSettings,
       };
       await updateSettings(settingsData);
       alert("تم حفظ الإعدادات بنجاح");
@@ -596,6 +605,77 @@ const Settings: React.FC = () => {
                       </label>
                     </div>
                   ))}
+                </div>
+
+                {/* Bank Transfer Settings */}
+                <div className="bank-settings">
+                  <h3>
+                    <CreditCard size={18} />
+                    بيانات الحساب البنكي (التحويل البنكي)
+                  </h3>
+                  <p className="settings-description">
+                    تظهر هذه البيانات للعميل عند اختياره "التحويل البنكي" في صفحة
+                    الدفع
+                  </p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>اسم البنك</label>
+                      <input
+                        type="text"
+                        value={bankSettings.bankName}
+                        onChange={(e) =>
+                          setBankSettings((prev) => ({
+                            ...prev,
+                            bankName: e.target.value,
+                          }))
+                        }
+                        placeholder="مثال: البنك الأهلي"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>اسم صاحب الحساب</label>
+                      <input
+                        type="text"
+                        value={bankSettings.accountName}
+                        onChange={(e) =>
+                          setBankSettings((prev) => ({
+                            ...prev,
+                            accountName: e.target.value,
+                          }))
+                        }
+                        placeholder="مثال: جبوري للإلكترونيات"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>رقم الآيبان (IBAN)</label>
+                    <input
+                      type="text"
+                      value={bankSettings.iban}
+                      onChange={(e) =>
+                        setBankSettings((prev) => ({
+                          ...prev,
+                          iban: e.target.value.toUpperCase().replace(/\s/g, ""),
+                        }))
+                      }
+                      placeholder="SA0000000000000000000000"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>ملاحظة للعميل (اختياري)</label>
+                    <input
+                      type="text"
+                      value={bankSettings.note}
+                      onChange={(e) =>
+                        setBankSettings((prev) => ({
+                          ...prev,
+                          note: e.target.value,
+                        }))
+                      }
+                      placeholder="مثال: يرجى إرسال إيصال التحويل عبر الواتساب"
+                    />
+                  </div>
                 </div>
 
                 {/* Tamara Settings */}

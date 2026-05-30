@@ -64,6 +64,13 @@ const Checkout: React.FC = () => {
     { id: "tamara", name: "تمارا - قسّمها على 3", enabled: true },
     { id: "tabby", name: "تابي - قسّمها على 4", enabled: true },
   ]);
+  const [bankSettings, setBankSettings] = useState({
+    bankName: "",
+    accountName: "",
+    iban: "",
+    note: "",
+  });
+  const [ibanCopied, setIbanCopied] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -89,6 +96,9 @@ const Checkout: React.FC = () => {
         if (settings) {
           if (settings.shipping) {
             setShippingSettings(settings.shipping);
+          }
+          if (settings.bank) {
+            setBankSettings(settings.bank);
           }
           // نتجاهل إعدادات الدفع من Firestore ونستخدم الافتراضية مع البطاقة مفعّلة
           // لأن Firestore فيه بيانات قديمة
@@ -1037,19 +1047,50 @@ const Checkout: React.FC = () => {
                       {formData.paymentMethod === "bank" && (
                         <div className="bank-details">
                           <h4>بيانات الحساب البنكي</h4>
-                          <p>
-                            <strong>البنك:</strong> البنك الأهلي
-                          </p>
-                          <p>
-                            <strong>اسم الحساب:</strong> جبوري للإلكترونيات
-                          </p>
-                          <p>
-                            <strong>رقم الآيبان:</strong>{" "}
-                            SA0000000000000000000000
-                          </p>
-                          <p className="note">
-                            يرجى إرسال إيصال التحويل عبر الواتساب
-                          </p>
+                          {bankSettings.bankName && (
+                            <p>
+                              <strong>البنك:</strong> {bankSettings.bankName}
+                            </p>
+                          )}
+                          {bankSettings.accountName && (
+                            <p>
+                              <strong>اسم الحساب:</strong>{" "}
+                              {bankSettings.accountName}
+                            </p>
+                          )}
+                          {bankSettings.iban ? (
+                            <p className="iban-row">
+                              <strong>رقم الآيبان:</strong>{" "}
+                              <span className="iban-value" dir="ltr">
+                                {bankSettings.iban}
+                              </span>
+                              <button
+                                type="button"
+                                className="copy-iban-btn"
+                                onClick={() => {
+                                  navigator.clipboard
+                                    ?.writeText(bankSettings.iban)
+                                    .then(() => {
+                                      setIbanCopied(true);
+                                      setTimeout(
+                                        () => setIbanCopied(false),
+                                        2000,
+                                      );
+                                    });
+                                }}
+                              >
+                                {ibanCopied ? "تم النسخ ✓" : "نسخ"}
+                              </button>
+                            </p>
+                          ) : (
+                            <p className="note">
+                              لم يتم إضافة رقم الآيبان بعد، يرجى التواصل مع المتجر
+                              لإتمام التحويل.
+                            </p>
+                          )}
+                          {bankSettings.note && (
+                            <p className="note">{bankSettings.note}</p>
+                          )}
                         </div>
                       )}
 
