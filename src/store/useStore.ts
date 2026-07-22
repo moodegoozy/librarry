@@ -12,6 +12,10 @@ interface StoreState {
   getCartTotal: () => number;
   getCartCount: () => number;
 
+  // Cart toast (تفاعل الإضافة للسلة) — حالة مؤقتة لا تُحفظ
+  cartToast: { product: Product; quantity: number; nonce: number } | null;
+  clearCartToast: () => void;
+
   // User (يبقى محلي للجلسة الحالية)
   user: User | null;
   setUser: (user: User | null) => void;
@@ -73,6 +77,11 @@ export const useStore = create<StoreState>()(
         } else {
           set({ cart: [...cart, { product: productData as Product, quantity, selectedVariants }] });
         }
+
+        // إظهار تفاعل "أُضيف إلى السلة"
+        set({
+          cartToast: { product: productData as Product, quantity, nonce: Date.now() },
+        });
       },
       removeFromCart: (productId, selectedVariants) => {
         const variantsMatch = (v1?: Record<string, string>, v2?: Record<string, string>) => {
@@ -123,6 +132,10 @@ export const useStore = create<StoreState>()(
       getCartCount: () => {
         return get().cart.reduce((count, item) => count + item.quantity, 0);
       },
+
+      // Cart toast
+      cartToast: null,
+      clearCartToast: () => set({ cartToast: null }),
 
       // User
       user: null,

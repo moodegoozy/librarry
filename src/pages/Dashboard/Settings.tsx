@@ -14,6 +14,7 @@ import { useStore } from "../../store/useStore";
 import { getSettings, updateSettings } from "../../services/firestore";
 import { saveTamaraSettings, testTamaraConnection } from "../../services/tamara";
 import { saveTabbySettings, testTabbyConnection } from "../../services/tabby";
+import { saveTapSettings, testTapConnection } from "../../services/tap";
 import {
   updatePassword,
   EmailAuthProvider,
@@ -55,9 +56,9 @@ const Settings: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState([
     { id: "cash", name: "الدفع عند الاستلام", enabled: true },
     { id: "bank", name: "التحويل البنكي", enabled: true },
-    { id: "card", name: "بطاقة ائتمان (PayPal)", enabled: true },
     { id: "tamara", name: "تمارا - قسّمها على 3", enabled: true },
     { id: "tabby", name: "تابي - قسّمها على 4", enabled: true },
+    { id: "tap", name: "تاب - مدى وبطاقات ومحافظ", enabled: true },
   ]);
 
   const [bankSettings, setBankSettings] = useState({
@@ -79,6 +80,13 @@ const Settings: React.FC = () => {
     isConnected: false,
   });
   const [tabbyLoading, setTabbyLoading] = useState(false);
+
+  const [tapSettings, setTapSettings] = useState({
+    publicKey: "",
+    secretKey: "",
+    isConnected: false,
+  });
+  const [tapLoading, setTapLoading] = useState(false);
 
   const [emailSettings, setEmailSettings] = useState({
     smtpHost: "",
@@ -223,6 +231,48 @@ const Settings: React.FC = () => {
       alert(`فشل الحفظ: ${error.message || "خطأ غير معروف"}`);
     } finally {
       setTabbyLoading(false);
+    }
+  };
+
+  // اختبار وحفظ إعدادات تاب
+  const handleTestTap = async () => {
+    if (!tapSettings.secretKey) {
+      alert("يرجى إدخال المفتاح السري");
+      return;
+    }
+    setTapLoading(true);
+    try {
+      const result = await testTapConnection(
+        tapSettings.secretKey,
+        tapSettings.publicKey,
+      );
+      if (result.success) {
+        setTapSettings((prev) => ({ ...prev, isConnected: true }));
+        alert("تم الاتصال بتاب بنجاح!");
+      }
+    } catch (error: any) {
+      console.error("Tap test error:", error);
+      alert(`فشل الاتصال: ${error.message || "خطأ غير معروف"}`);
+      setTapSettings((prev) => ({ ...prev, isConnected: false }));
+    } finally {
+      setTapLoading(false);
+    }
+  };
+
+  const handleSaveTap = async () => {
+    if (!tapSettings.secretKey) {
+      alert("يرجى إدخال المفتاح السري");
+      return;
+    }
+    setTapLoading(true);
+    try {
+      await saveTapSettings(tapSettings.secretKey, tapSettings.publicKey);
+      alert("تم حفظ إعدادات تاب بنجاح");
+    } catch (error: any) {
+      console.error("Tap save error:", error);
+      alert(`فشل الحفظ: ${error.message || "خطأ غير معروف"}`);
+    } finally {
+      setTapLoading(false);
     }
   };
 
@@ -790,6 +840,78 @@ const Settings: React.FC = () => {
                   </div>
                   {tabbySettings.isConnected && (
                     <p className="success-text">✓ متصل بتابي</p>
+                  )}
+                </div>
+
+                {/* Tap Settings */}
+                <div className="tabby-settings">
+                  <h3>
+                    <CreditCard size={18} />
+                    إعدادات تاب (Tap)
+                  </h3>
+                  <p className="settings-hint">
+                    تعرض صفحة تاب جميع وسائل الدفع المفعّلة في حسابك تلقائياً
+                    (مدى، فيزا، ماستركارد، أمريكان إكسبريس، آبل باي، KNET...).
+                    فعّل الوسائل التي تريدها من لوحة تحكم تاب.
+                  </p>
+                  <div className="form-group">
+                    <label>المفتاح العام (Public Key)</label>
+                    <input
+                      type="text"
+                      value={tapSettings.publicKey}
+                      onChange={(e) =>
+                        setTapSettings((prev) => ({
+                          ...prev,
+                          publicKey: e.target.value.trim(),
+                          isConnected: false,
+                        }))
+                      }
+                      placeholder="pk_live_xxxxx..."
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>المفتاح السري (Secret Key)</label>
+                    <input
+                      type="password"
+                      value={tapSettings.secretKey}
+                      onChange={(e) =>
+                        setTapSettings((prev) => ({
+                          ...prev,
+                          secretKey: e.target.value.trim(),
+                          isConnected: false,
+                        }))
+                      }
+                      placeholder="sk_live_xxxxx..."
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="tabby-actions">
+                    <button
+                      className="btn btn-outline"
+                      onClick={handleTestTap}
+                      disabled={tapLoading}
+                    >
+                      {tapLoading ? (
+                        <Loader className="spinner" size={16} />
+                      ) : (
+                        "اختبار الاتصال"
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleSaveTap}
+                      disabled={tapLoading}
+                    >
+                      {tapLoading ? (
+                        <Loader className="spinner" size={16} />
+                      ) : (
+                        "حفظ الإعدادات"
+                      )}
+                    </button>
+                  </div>
+                  {tapSettings.isConnected && (
+                    <p className="success-text">✓ متصل بتاب</p>
                   )}
                 </div>
               </div>

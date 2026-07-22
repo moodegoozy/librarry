@@ -1473,6 +1473,340 @@ export const tabbyTestConnection = functions.https.onCall(
   }
 );
 
+// ==================== Tap Payments - إعداد مفاتيح API ====================
+import * as tap from "./tapClient";
+
+async function initTapKeys(): Promise<void> {
+  // أولاً: التحقق من Firestore
+  const settingsDoc = await admin.firestore().doc("settings/tap").get();
+  const settings = settingsDoc.data();
+  if (settings?.secretKey) {
+    tap.setApiKeys(settings.secretKey, settings.publicKey || "");
+    return;
+  }
+
+  // ثانياً: التحقق من متغيرات البيئة
+  const secKey = process.env.TAP_SECRET_KEY;
+  const pubKey = process.env.TAP_PUBLIC_KEY;
+  if (secKey) {
+    tap.setApiKeys(secKey, pubKey || "");
+    return;
+  }
+
+  throw new functions.https.HttpsError(
+    "failed-precondition",
+    "مفاتيح Tap API غير مُعدة. يرجى إعدادها في الإعدادات."
+  );
+}
+
+/**
+ * تحويل رقم الجوال السعودي إلى صيغة تاب (country_code + number بدون صفر بادئ)
+ */
+function parseTapPhone(rawPhone: string): { country_code: string; number: string } {
+  let phone = (rawPhone || "").replace(/[\s-()]/g, "");
+  let countryCode = "966";
+
+  if (phone.startsWith("+")) {
+    phone = phone.slice(1);
+  }
+  if (phone.startsWith("00")) {
+    phone = phone.slice(2);
+  }
+  if (phone.startsWith("966")) {
+    countryCode = "966";
+    phone = phone.slice(3);
+  }
+  // إزالة الصفر البادئ المحلي
+  phone = phone.replace(/^0+/, "");
+
+  return { country_code: countryCode, number: phone };
+}
+
+// رابط الـ webhook الذي يستدعيه تاب عند تغيّر حالة الدفع
+const TAP_WEBHOOK_URL =
+  "https://us-central1-jabouri-digital-library.cloudfunctions.net/tapWebhook";
+
+/**
+ * إنشاء/تعليم طلب تاب كمدفوع بشكل idempotent بعد تأكيد الدفع فعلياً من تاب.
+ * يعتمد على مستند pending_payments/{reference} الذي يحوي بيانات الطلب الكاملة،
+ * ويستخدم reference كمعرّف للطلب لضمان عدم إنشاء طلبات مكررة.
+ */
+async function ensureTapOrderPaid(
+  reference: string,
+  chargeId: string,
+  paymentMethodLabel?: string | null
+): Promise<void> {
+  const db = admin.firestore();
+  const orderRef = db.doc(`orders/${reference}`);
+  const existing = await orderRef.get();
+
+  if (existing.exists) {
+    // الطلب موجود مسبقاً — نتأكد فقط أنه معلّم مدفوعاً
+    if (existing.data()?.paymentStatus !== "paid") {
+      await orderRef.update({
+        paymentStatus: "paid",
+        tapChargeId: chargeId,
+        tapStatus: "CAPTURED",
+        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return;
+  }
+
+  const pendingSnap = await db.doc(`pending_payments/${reference}`).get();
+  const pending = pendingSnap.data();
+  if (!pending || !pending.orderData) {
+    console.warn(`ensureTapOrderPaid: لا توجد بيانات طلب معلّق لـ ${reference}`);
+    return;
+  }
+
+  await orderRef.set({
+    ...pending.orderData,
+    userId: pending.userId, // المعرّف الموثوق من وقت إنشاء الدفع
+    paymentMethod: "tap",
+    paymentStatus: "paid",
+    tapChargeId: chargeId,
+    tapStatus: "CAPTURED",
+    tapPaymentMethod: paymentMethodLabel || null,
+    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // تنظيف بيانات الدفع المعلق
+  await db.doc(`pending_payments/${reference}`).delete().catch(() => undefined);
+}
+
+// ==================== Tap - إنشاء عملية دفع (Charge) ====================
+export const tapCreateCharge = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "يجب تسجيل الدخول لإتمام الدفع"
+    );
+  }
+
+  const {
+    amount,
+    currency,
+    description,
+    customer,
+    order_reference_id,
+    redirect_url,
+    source_id,
+    orderData,
+  } = data;
+
+  if (!amount || parseFloat(amount) <= 0) {
+    throw new functions.https.HttpsError("invalid-argument", "المبلغ غير صحيح");
+  }
+  if (!order_reference_id) {
+    throw new functions.https.HttpsError("invalid-argument", "معرف الطلب مطلوب");
+  }
+  if (!redirect_url) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "رابط العودة مطلوب"
+    );
+  }
+  if (!customer?.email && !customer?.phone) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "بيانات العميل مطلوبة (البريد الإلكتروني أو رقم الجوال)"
+    );
+  }
+
+  try {
+    await initTapKeys();
+
+    const nameParts = (customer.name || "عميل").trim().split(/\s+/);
+    const firstName = nameParts.shift() || "عميل";
+    const lastName = nameParts.join(" ") || undefined;
+
+    const phone = parseTapPhone(customer.phone || "");
+    // تاب يتطلب بريداً إلكترونياً؛ نولّد بديلاً للعملاء المسجّلين بالجوال فقط
+    const email =
+      customer.email && customer.email.includes("@")
+        ? customer.email
+        : `${phone.number || "guest"}@guest.jaboore.com`;
+
+    const result = await tap.createCharge({
+      amount: parseFloat(parseFloat(amount).toFixed(2)),
+      currency: currency || "SAR",
+      description: description || `طلب #${order_reference_id}`,
+      order_reference: order_reference_id,
+      redirect_url,
+      post_url: TAP_WEBHOOK_URL,
+      source_id: source_id || "src_all",
+      customer: {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+      },
+      metadata: {
+        userId: context.auth.uid,
+        order_reference: order_reference_id,
+      },
+    });
+
+    // حفظ معلومات الدفع المعلق + بيانات الطلب الكاملة (لإنشائه في الخادم عند تأكيد الدفع)
+    await admin.firestore().doc(`pending_payments/${order_reference_id}`).set({
+      userId: context.auth.uid,
+      paymentMethod: "tap",
+      tapChargeId: result.id || null,
+      amount,
+      currency: currency || "SAR",
+      status: result.status || "INITIATED",
+      orderData: orderData || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      id: result.id,
+      status: result.status,
+      redirect_url: result.transaction?.url || null,
+    };
+  } catch (error) {
+    console.error("Tap create charge error:", error);
+    const msg = error instanceof Error ? error.message : "خطأ في إنشاء عملية الدفع";
+    throw new functions.https.HttpsError("internal", msg);
+  }
+});
+
+// ==================== Tap - التحقق من حالة الدفع وتأكيده ====================
+export const tapGetChargeStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "يجب تسجيل الدخول");
+  }
+
+  const { chargeId, order_reference_id } = data;
+
+  if (!chargeId) {
+    throw new functions.https.HttpsError("invalid-argument", "معرف الدفع مطلوب");
+  }
+
+  try {
+    await initTapKeys();
+    const result = await tap.retrieveCharge(chargeId);
+
+    const reference = order_reference_id || result.reference?.order;
+
+    // إنشاء/تعليم الطلب كمدفوع في الخادم عند تأكيد الدفع فعلياً فقط
+    if (result.status === "CAPTURED" && reference) {
+      await ensureTapOrderPaid(reference, chargeId, result.source?.payment_method);
+    }
+
+    return {
+      id: result.id,
+      status: result.status,
+      amount: result.amount,
+      currency: result.currency,
+      order_reference_id: reference || null,
+      payment_method: result.source?.payment_method || null,
+    };
+  } catch (error) {
+    console.error("Tap get charge status error:", error);
+    const msg = error instanceof Error ? error.message : "خطأ في جلب حالة الدفع";
+    throw new functions.https.HttpsError("internal", msg);
+  }
+});
+
+// ==================== Tap - Webhook (تأكيد الدفع من الخادم) ====================
+// يستدعيه تاب عند تغيّر حالة الدفع. لا نثق بجسم الطلب مباشرةً — بل نعيد
+// جلب العملية من تاب (بالمفتاح السري) ونتصرّف بناءً على الحالة الموثوقة فقط.
+export const tapWebhook = functions.https.onRequest(async (req, res) => {
+  try {
+    const body = req.body || {};
+    const chargeId = body.id || body.charge?.id;
+
+    if (!chargeId) {
+      res.status(200).send("no charge id");
+      return;
+    }
+
+    await initTapKeys();
+    const charge = await tap.retrieveCharge(chargeId);
+    const reference = charge.reference?.order;
+
+    if (charge.status === "CAPTURED" && reference) {
+      await ensureTapOrderPaid(
+        reference,
+        chargeId,
+        charge.source?.payment_method
+      );
+      console.log(`Tap webhook: order ${reference} marked paid (${chargeId})`);
+    } else {
+      console.log(
+        `Tap webhook: charge ${chargeId} status=${charge.status} (no action)`
+      );
+    }
+
+    res.status(200).send("ok");
+  } catch (error) {
+    console.error("Tap webhook error:", error);
+    // نرجّع 200 حتى لا يعيد تاب الإرسال بلا نهاية — الخطأ مُسجّل
+    res.status(200).send("error-logged");
+  }
+});
+
+// ==================== Tap - حفظ إعدادات API ====================
+export const tapSaveSettings = functions.https.onCall(async (data, context) => {
+  await verifyAdmin(context.auth ?? undefined);
+
+  const { publicKey, secretKey } = data;
+
+  if (!secretKey) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "المفتاح السري مطلوب"
+    );
+  }
+
+  try {
+    await admin.firestore().doc("settings/tap").set({
+      publicKey: publicKey || "",
+      secretKey,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: context.auth!.uid,
+    });
+
+    return { success: true, message: "تم حفظ إعدادات Tap بنجاح" };
+  } catch (error) {
+    console.error("Tap save settings error:", error);
+    const msg = error instanceof Error ? error.message : "خطأ في حفظ الإعدادات";
+    throw new functions.https.HttpsError("internal", msg);
+  }
+});
+
+// ==================== Tap - اختبار الاتصال ====================
+export const tapTestConnection = functions.https.onCall(async (data, context) => {
+  await verifyAdmin(context.auth ?? undefined);
+
+  const { publicKey, secretKey } = data;
+
+  if (!secretKey) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "المفتاح السري مطلوب للاختبار"
+    );
+  }
+
+  try {
+    tap.setApiKeys(secretKey, publicKey || "");
+    await tap.testConnection();
+    return {
+      success: true,
+      message: "تم التحقق من مفاتيح Tap - المفاتيح صحيحة",
+    };
+  } catch (error) {
+    console.error("Tap test connection error:", error);
+    const msg = error instanceof Error ? error.message : "فشل الاتصال بـ Tap";
+    throw new functions.https.HttpsError("internal", msg);
+  }
+});
+
 // ==================== Product Scraper (Server-Side) ====================
 
 interface ScrapedProduct {

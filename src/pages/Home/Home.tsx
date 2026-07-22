@@ -12,6 +12,7 @@ import {
   Package,
 } from "lucide-react";
 import ProductCard from "../../components/ProductCard/ProductCard";
+import CircuitBackground from "../../components/CircuitBackground/CircuitBackground";
 import { useStore } from "../../store/useStore";
 import "./Home.css";
 
@@ -44,6 +45,7 @@ const Home: React.FC = () => {
     <div className="home">
       {/* Hero Section */}
       <section className="hero">
+        <CircuitBackground />
         <div className="container">
           <div className="hero-content">
             <div className="hero-text">

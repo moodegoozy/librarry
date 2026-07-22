@@ -1,5 +1,12 @@
 # Copilot Instructions - جبوري للإلكترونيات
 
+## How to use this file
+
+- Prefer this file over generic assumptions for architecture, data shape, and important conventions.
+- Validate frontend changes with `npm run build` and `npm run lint` in the repository root.
+- The app contains both a React frontend in `src/` and Firebase backend code in `functions/src/`.
+- Use the README for setup and deployment details, but rely on this file for AI task priorities.
+
 ## Architecture Overview
 
 This is an **Arabic RTL e-commerce platform** for electronics, built with React 19 + TypeScript + Vite 7.3, using Firebase (Firestore, Auth, Storage, Functions) as the backend.

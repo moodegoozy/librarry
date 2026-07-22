@@ -107,6 +107,39 @@ const PhoneAuth: React.FC<PhoneAuthProps> = ({
     return verifier;
   };
 
+  // أخطاء دائمة لا فائدة من إعادة المحاولة عليها
+  const PERMANENT_OTP_ERRORS = new Set([
+    "auth/invalid-phone-number",
+    "auth/operation-not-allowed",
+    "auth/app-not-authorized",
+    "auth/too-many-requests",
+    "auth/quota-exceeded",
+    "auth/invalid-app-credential",
+    "auth/missing-app-credential",
+  ]);
+
+  const otpErrorMessage = (code?: string): string => {
+    switch (code) {
+      case "auth/invalid-phone-number":
+        return "رقم الجوال غير صحيح";
+      case "auth/operation-not-allowed":
+        return "تسجيل الدخول بالجوال غير مفعّل في Firebase";
+      case "auth/app-not-authorized":
+        return "هذا النطاق غير مصرّح له في إعدادات Firebase Auth";
+      case "auth/invalid-app-credential":
+        return "تعذر تهيئة التحقق الأمني. أعد تحميل الصفحة وحاول مرة أخرى";
+      case "auth/missing-app-credential":
+        return "فشل تحميل reCAPTCHA. تحقق من اتصالك ثم أعد المحاولة";
+      case "auth/too-many-requests":
+        return "محاولات كثيرة، يرجى الانتظار والمحاولة لاحقاً";
+      case "auth/quota-exceeded":
+        return "تم تجاوز الحد المسموح، حاول لاحقاً";
+      default:
+        // 503 / انقطاع الشبكة / فشل reCAPTCHA المتقطّع
+        return "خدمة التحقق من Google غير متوفرة مؤقتاً. تأكد من ثبات الإنترنت (جرّب شبكة أخرى) وأعد المحاولة بعد لحظات";
+    }
+  };
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -119,44 +152,49 @@ const PhoneAuth: React.FC<PhoneAuthProps> = ({
     }
 
     setLoading(true);
+    const formattedPhone = formatPhoneForFirebase(phoneNumber);
+    const maxAttempts = 3; // محاولة أولى + محاولتا إعادة عند الفشل المؤقت
+    let lastCode: string | undefined;
 
-    try {
-      const appVerifier = await setupRecaptcha();
-      const formattedPhone = formatPhoneForFirebase(phoneNumber);
-      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-      window.confirmationResult = result;
-      setStep("otp");
-      setCountdown(60);
-      // Focus first OTP input
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      console.error("Phone auth error:", firebaseError);
-      if (firebaseError.code === "auth/invalid-phone-number") {
-        setError("رقم الجوال غير صحيح");
-      } else if (firebaseError.code === "auth/operation-not-allowed") {
-        setError("تسجيل الدخول بالجوال غير مفعّل في Firebase");
-      } else if (firebaseError.code === "auth/app-not-authorized") {
-        setError("هذا النطاق غير مصرّح له في إعدادات Firebase Auth");
-      } else if (firebaseError.code === "auth/invalid-app-credential") {
-        setError("تعذر تهيئة التحقق الأمني. أعد تحميل الصفحة وحاول مرة أخرى");
-      } else if (firebaseError.code === "auth/missing-app-credential") {
-        setError("فشل تحميل reCAPTCHA. تحقق من اتصالك ثم أعد المحاولة");
-      } else if (firebaseError.code === "auth/captcha-check-failed") {
-        setError("فشل التحقق الأمني reCAPTCHA. أعد المحاولة");
-      } else if (firebaseError.code === "auth/network-request-failed") {
-        setError("تعذر الاتصال بخدمة التحقق. تحقق من الإنترنت ثم حاول مرة أخرى");
-      } else if (firebaseError.code === "auth/too-many-requests") {
-        setError("محاولات كثيرة، يرجى الانتظار والمحاولة لاحقاً");
-      } else if (firebaseError.code === "auth/quota-exceeded") {
-        setError("تم تجاوز الحد المسموح، حاول لاحقاً");
-      } else {
-        setError("حدث خطأ في إرسال رمز التحقق، حاول مرة أخرى");
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // رمز reCAPTCHA يُستهلك بعد كل محاولة — نبنيه من جديد في كل مرة
+        clearRecaptcha();
+        const appVerifier = await setupRecaptcha();
+        const result = await signInWithPhoneNumber(
+          auth,
+          formattedPhone,
+          appVerifier
+        );
+        window.confirmationResult = result;
+        setStep("otp");
+        setCountdown(60);
+        setError("");
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+        setLoading(false);
+        return;
+      } catch (err: unknown) {
+        const firebaseError = err as { code?: string; message?: string };
+        lastCode = firebaseError.code;
+        console.error(`Phone auth attempt ${attempt} failed:`, firebaseError);
+
+        // خطأ دائم — نتوقف فوراً
+        if (firebaseError.code && PERMANENT_OTP_ERRORS.has(firebaseError.code)) {
+          break;
+        }
+        // خطأ مؤقت — ننتظر قليلاً (backoff) ونعيد المحاولة تلقائياً
+        if (attempt < maxAttempts) {
+          setError(
+            `خدمة التحقق مشغولة… جارٍ إعادة المحاولة (${attempt}/${maxAttempts - 1})`
+          );
+          await new Promise((r) => setTimeout(r, 900 * attempt));
+        }
       }
-      clearRecaptcha();
-    } finally {
-      setLoading(false);
     }
+
+    clearRecaptcha();
+    setError(otpErrorMessage(lastCode));
+    setLoading(false);
   };
 
   const handleOtpChange = (index: number, value: string) => {

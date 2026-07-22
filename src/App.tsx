@@ -13,6 +13,7 @@ import { useStore } from "./store/useStore";
 // Layouts (loaded immediately - small components)
 import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
+import CartToast from "./components/CartToast/CartToast";
 
 const lazyWithRetry = <T extends React.ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
@@ -174,6 +175,7 @@ const StoreLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <Suspense fallback={<PageLoader />}>{children}</Suspense>
     </main>
     <Footer />
+    <CartToast />
   </>
 );
 
@@ -198,28 +200,47 @@ const App: React.FC = () => {
   // الحفاظ على جلسة المستخدم عند تحديث الصفحة
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // جلب بيانات المستخدم من Firestore
-        let userData = await getUserById(firebaseUser.uid);
+      try {
+        if (firebaseUser) {
+          // جلب بيانات المستخدم من Firestore
+          let userData = await getUserById(firebaseUser.uid);
 
-        if (!userData) {
-          // إنشاء مستخدم جديد إذا لم يكن موجود
-          userData = {
+          if (!userData) {
+            // إنشاء مستخدم جديد إذا لم يكن موجود
+            userData = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              name: firebaseUser.displayName || "مستخدم",
+              role: "customer",
+              addresses: [],
+              createdAt: new Date(),
+            };
+            await createOrUpdateUser(userData);
+          }
+
+          setUser(userData);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        // فشل قراءة/إنشاء بيانات المستخدم (خطأ شبكة مثلاً) — لا نُبقي التطبيق عالقاً على التحميل،
+        // ونُبقي المستخدم مسجّلاً بالحد الأدنى من البيانات حتى لا ينكسر تسجيل الدخول
+        console.error("Auth state resolution error:", error);
+        if (firebaseUser) {
+          setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email || "",
             name: firebaseUser.displayName || "مستخدم",
             role: "customer",
             addresses: [],
             createdAt: new Date(),
-          };
-          await createOrUpdateUser(userData);
+          });
+        } else {
+          setUser(null);
         }
-
-        setUser(userData);
-      } else {
-        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

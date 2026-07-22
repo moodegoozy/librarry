@@ -318,7 +318,10 @@ export const createOrUpdateUser = async (user: User): Promise<void> => {
       phone: user.phone || "",
       role: user.role,
       addresses: user.addresses || [],
-      createdAt: Timestamp.now(),
+      // نحافظ على تاريخ التسجيل الأصلي بدل استبداله في كل مرة (merge)
+      createdAt: user.createdAt
+        ? Timestamp.fromDate(new Date(user.createdAt))
+        : Timestamp.now(),
     },
     { merge: true },
   );

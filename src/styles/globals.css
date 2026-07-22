@@ -1,33 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
 
 :root {
-  --primary: #1a5f7a;
-  --primary-dark: #134b5f;
-  --primary-light: rgba(26, 95, 122, 0.1);
-  --primary-rgb: 26, 95, 122;
-  --secondary: #ffc93c;
+  /* 🎨 كحلي / برتقالي / أبيض */
+  --primary: #123a6b;          /* كحلي */
+  --primary-dark: #0c2b52;
+  --primary-light: rgba(18, 58, 107, 0.1);
+  --primary-rgb: 18, 58, 107;
+  --secondary: #ff6b1a;        /* برتقالي */
+  --accent: #ff6b1a;
   --success: #22c55e;
-  --warning: #ffc93c;
+  --warning: #ffb020;
   --danger: #ef4444;
-  --dark: #1a3c4d;
+  --dark: #0c2340;             /* كحلي غامق للنصوص */
   --light: #f8fafc;
   --bg-light: #f8fafc;
   --gray: #64748b;
   --border: #e2e8f0;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  
+
   /* Premium Gradients */
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-primary: linear-gradient(135deg, #164a8a 0%, #0c2b52 100%);
+  --gradient-accent: linear-gradient(135deg, #ff8a3c 0%, #ff6b1a 100%);
   --gradient-success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  --gradient-gold: linear-gradient(135deg, #c9a227 0%, #f4d03f 50%, #c9a227 100%);
-  --gradient-dark: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  
+  --gradient-gold: linear-gradient(135deg, #ff8a3c 0%, #ff6b1a 50%, #ea580c 100%);
+  --gradient-dark: linear-gradient(135deg, #0c2340 0%, #0a1e3a 50%, #06132b 100%);
+
   /* Premium Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.15);
-  --shadow-primary: 0 8px 25px rgba(102, 126, 234, 0.35);
+  --shadow-primary: 0 8px 25px rgba(18, 58, 107, 0.35);
+  --shadow-accent: 0 8px 25px rgba(255, 107, 26, 0.4);
   --shadow-success: 0 8px 25px rgba(34, 197, 94, 0.35);
   --shadow-danger: 0 8px 25px rgba(239, 68, 68, 0.35);
 }
@@ -78,7 +82,7 @@ input, select, textarea {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #ff8a3c 0%, #ff6b1a 100%);
 }
 
 /* Container */
@@ -130,7 +134,7 @@ input, select, textarea {
 
 .btn-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 12px 35px rgba(18, 58, 107, 0.5);
 }
 
 .btn-secondary {
@@ -157,8 +161,8 @@ input, select, textarea {
 
 .btn-outline {
   background: transparent;
-  border: 2px solid #667eea;
-  color: #667eea;
+  border: 2px solid var(--primary);
+  color: var(--primary);
 }
 
 .btn-outline:hover {
@@ -181,13 +185,13 @@ input, select, textarea {
 }
 
 .btn-ghost {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: var(--primary-light);
+  color: var(--primary);
   border: none;
 }
 
 .btn-ghost:hover {
-  background: rgba(102, 126, 234, 0.2);
+  background: rgba(18, 58, 107, 0.2);
 }
 
 .btn-sm {

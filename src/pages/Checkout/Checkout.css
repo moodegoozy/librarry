@@ -483,6 +483,68 @@
   width: auto;
 }
 
+/* Tap Payment */
+.tap-details {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f7f7f7;
+  border-radius: 16px;
+  border: 2px solid #1a1a1a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.tap-info {
+  text-align: center;
+  color: #1a1a1a;
+}
+
+.tap-details h4 {
+  margin: 0.75rem 0;
+  color: #1a1a1a;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.tap-methods-note {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+
+.btn-tap {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-tap:hover:not(:disabled) {
+  background: #000;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-tap:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.tap-success {
+  color: #1a1a1a;
+}
+
 /* Payment Success Badge */
 .payment-success-badge {
   display: flex;

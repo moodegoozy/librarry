@@ -24,6 +24,26 @@ import "./Orders.css";
 
 type Order = FirestoreOrder;
 
+// عرض اسم طريقة الدفع بالعربية
+const paymentMethodLabel = (method?: string): string => {
+  switch (method) {
+    case "cash":
+      return "الدفع عند الاستلام";
+    case "bank":
+      return "تحويل بنكي";
+    case "tap":
+      return "تاب (مدى/بطاقة/محفظة)";
+    case "tabby":
+      return "تابي";
+    case "tamara":
+      return "تمارا";
+    case "card":
+      return "بطاقة ائتمان";
+    default:
+      return method || "غير محدد";
+  }
+};
+
 const statusConfig = {
   pending: {
     label: "قيد الانتظار",
@@ -124,11 +144,7 @@ const Orders: React.FC = () => {
       o.customer || "عميل",
       o.email,
       o.total,
-      o.paymentMethod === "cash"
-        ? "الدفع عند الاستلام"
-        : o.paymentMethod === "bank"
-          ? "تحويل بنكي"
-          : "بطاقة",
+      paymentMethodLabel(o.paymentMethod),
       statusLabels[o.status] || o.status,
       formatDate(o.createdAt),
     ]);
@@ -319,11 +335,7 @@ const Orders: React.FC = () => {
                           <strong>{formatPrice(order.total)} ر.س</strong>
                         </td>
                         <td>
-                          {order.paymentMethod === "cash"
-                            ? "الدفع عند الاستلام"
-                            : order.paymentMethod === "bank"
-                              ? "تحويل بنكي"
-                              : "بطاقة ائتمان"}
+                          {paymentMethodLabel(order.paymentMethod)}
                         </td>
                         <td>
                           {order.paymentStatus === "paid" ? (
@@ -580,11 +592,7 @@ const Orders: React.FC = () => {
                   <div className="detail-row">
                     <span>طريقة الدفع:</span>
                     <strong>
-                      {selectedOrder.paymentMethod === "cash"
-                        ? "الدفع عند الاستلام"
-                        : selectedOrder.paymentMethod === "bank"
-                          ? "تحويل بنكي"
-                          : "بطاقة ائتمان"}
+                      {paymentMethodLabel(selectedOrder.paymentMethod)}
                     </strong>
                   </div>
                   <div className="detail-row">

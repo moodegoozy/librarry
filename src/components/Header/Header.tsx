@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -21,6 +21,19 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
 
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
+
+  // نبضة أيقونة السلة عند زيادة العدد
+  const [cartBump, setCartBump] = useState(false);
+  const prevCartCount = useRef(cartCount);
+  useEffect(() => {
+    if (cartCount > prevCartCount.current) {
+      setCartBump(true);
+      const t = setTimeout(() => setCartBump(false), 450);
+      prevCartCount.current = cartCount;
+      return () => clearTimeout(t);
+    }
+    prevCartCount.current = cartCount;
+  }, [cartCount]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +120,7 @@ const Header: React.FC = () => {
                 <Heart size={22} />
               </Link>
 
-              <Link to="/cart" className="action-btn cart-btn">
+              <Link to="/cart" className={`action-btn cart-btn ${cartBump ? "cart-bump" : ""}`}>
                 <ShoppingCart size={22} />
                 {cartCount > 0 && (
                   <span className="cart-count">{cartCount}</span>

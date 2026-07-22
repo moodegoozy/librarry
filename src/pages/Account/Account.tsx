@@ -32,6 +32,8 @@ const Account: React.FC = () => {
   const location = useLocation();
   const { user, setUser, wishlist, toggleWishlist, products } = useStore();
   const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("tab") === "orders") return "orders";
     return location.pathname === "/wishlist" ? "wishlist" : "profile";
   });
   const [editing, setEditing] = useState(false);
