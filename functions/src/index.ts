@@ -1757,25 +1757,71 @@ export const tapSaveSettings = functions.https.onCall(async (data, context) => {
 
   const { publicKey, secretKey } = data;
 
-  if (!secretKey) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "المفتاح السري مطلوب"
-    );
-  }
-
   try {
-    await admin.firestore().doc("settings/tap").set({
-      publicKey: publicKey || "",
-      secretKey,
+    const ref = admin.firestore().doc("settings/tap");
+    const existing = (await ref.get()).data() || {};
+
+    // يسمح بتحديث المفتاح العام دون إعادة كتابة السري في كل مرة
+    const finalSecret = secretKey || existing.secretKey;
+
+    if (!finalSecret) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "المفتاح السري مطلوب"
+      );
+    }
+
+    await ref.set({
+      publicKey: publicKey || existing.publicKey || "",
+      secretKey: finalSecret,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: context.auth!.uid,
     });
 
     return { success: true, message: "تم حفظ إعدادات Tap بنجاح" };
   } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
     console.error("Tap save settings error:", error);
     const msg = error instanceof Error ? error.message : "خطأ في حفظ الإعدادات";
+    throw new functions.https.HttpsError("internal", msg);
+  }
+});
+
+// ==================== Tap - جلب الإعدادات المحفوظة ====================
+// يُرجع المفتاح العام كاملاً والسري **مُقنّعاً** — لا نعيد إرسال السر للمتصفح
+export const tapGetSettings = functions.https.onCall(async (_data, context) => {
+  await verifyAdmin(context.auth ?? undefined);
+
+  try {
+    const snap = await admin.firestore().doc("settings/tap").get();
+
+    if (!snap.exists) {
+      return { exists: false, publicKey: "", hasSecretKey: false, secretKeyMasked: "" };
+    }
+
+    const d = snap.data() || {};
+    const secret: string = d.secretKey || "";
+    const maskSecret = (k: string): string => {
+      if (!k) return "";
+      const prefix = k.startsWith("sk_live_")
+        ? "sk_live_"
+        : k.startsWith("sk_test_")
+          ? "sk_test_"
+          : "";
+      return `${prefix}••••••••${k.slice(-4)}`;
+    };
+
+    return {
+      exists: true,
+      publicKey: d.publicKey || "",
+      hasSecretKey: !!secret,
+      secretKeyMasked: maskSecret(secret),
+      isLive: secret.startsWith("sk_live_"),
+      updatedAt: d.updatedAt?.toDate?.()?.toISOString() || null,
+    };
+  } catch (error) {
+    console.error("Tap get settings error:", error);
+    const msg = error instanceof Error ? error.message : "خطأ في جلب الإعدادات";
     throw new functions.https.HttpsError("internal", msg);
   }
 });
@@ -1786,7 +1832,19 @@ export const tapTestConnection = functions.https.onCall(async (data, context) =>
 
   const { publicKey, secretKey } = data;
 
-  if (!secretKey) {
+  // إن لم يُرسل مفتاح، نختبر المفتاح المحفوظ مسبقاً
+  let testSecret = secretKey;
+  let testPublic = publicKey;
+
+  if (!testSecret) {
+    const saved = (
+      await admin.firestore().doc("settings/tap").get()
+    ).data();
+    testSecret = saved?.secretKey;
+    testPublic = testPublic || saved?.publicKey;
+  }
+
+  if (!testSecret) {
     throw new functions.https.HttpsError(
       "invalid-argument",
       "المفتاح السري مطلوب للاختبار"
@@ -1794,7 +1852,7 @@ export const tapTestConnection = functions.https.onCall(async (data, context) =>
   }
 
   try {
-    tap.setApiKeys(secretKey, publicKey || "");
+    tap.setApiKeys(testSecret, testPublic || "");
     await tap.testConnection();
     return {
       success: true,

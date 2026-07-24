@@ -14,7 +14,11 @@ import { useStore } from "../../store/useStore";
 import { getSettings, updateSettings } from "../../services/firestore";
 import { saveTamaraSettings, testTamaraConnection } from "../../services/tamara";
 import { saveTabbySettings, testTabbyConnection } from "../../services/tabby";
-import { saveTapSettings, testTapConnection } from "../../services/tap";
+import {
+  saveTapSettings,
+  testTapConnection,
+  getTapSettings,
+} from "../../services/tap";
 import {
   updatePassword,
   EmailAuthProvider,
@@ -87,6 +91,12 @@ const Settings: React.FC = () => {
     isConnected: false,
   });
   const [tapLoading, setTapLoading] = useState(false);
+  // معلومات المفتاح السري المحفوظ (مُقنّع — لا يُعاد إرساله للمتصفح)
+  const [tapSaved, setTapSaved] = useState({
+    hasSecretKey: false,
+    secretKeyMasked: "",
+    isLive: false,
+  });
 
   const [emailSettings, setEmailSettings] = useState({
     smtpHost: "",
@@ -126,6 +136,22 @@ const Settings: React.FC = () => {
       }
     };
     fetchSettings();
+
+    // مفاتيح تاب مخزّنة في مستند منفصل (settings/tap) — نجلبها لتعبئة النموذج
+    const fetchTap = async () => {
+      try {
+        const tap = await getTapSettings();
+        setTapSettings((prev) => ({ ...prev, publicKey: tap.publicKey || "" }));
+        setTapSaved({
+          hasSecretKey: tap.hasSecretKey,
+          secretKeyMasked: tap.secretKeyMasked || "",
+          isLive: !!tap.isLive,
+        });
+      } catch (error) {
+        console.error("Error fetching Tap settings:", error);
+      }
+    };
+    fetchTap();
   }, []);
 
   const handleSave = async () => {
@@ -236,7 +262,8 @@ const Settings: React.FC = () => {
 
   // اختبار وحفظ إعدادات تاب
   const handleTestTap = async () => {
-    if (!tapSettings.secretKey) {
+    // إن كان هناك مفتاح محفوظ، نختبره دون الحاجة لإعادة كتابته
+    if (!tapSettings.secretKey && !tapSaved.hasSecretKey) {
       alert("يرجى إدخال المفتاح السري");
       return;
     }
@@ -260,13 +287,22 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveTap = async () => {
-    if (!tapSettings.secretKey) {
+    // يكفي وجود مفتاح محفوظ مسبقاً — لا نُجبر على إعادة كتابته
+    if (!tapSettings.secretKey && !tapSaved.hasSecretKey) {
       alert("يرجى إدخال المفتاح السري");
       return;
     }
     setTapLoading(true);
     try {
       await saveTapSettings(tapSettings.secretKey, tapSettings.publicKey);
+      // نعيد الجلب ليعكس النموذج ما هو محفوظ فعلاً
+      const tap = await getTapSettings();
+      setTapSaved({
+        hasSecretKey: tap.hasSecretKey,
+        secretKeyMasked: tap.secretKeyMasked || "",
+        isLive: !!tap.isLive,
+      });
+      setTapSettings((prev) => ({ ...prev, secretKey: "" }));
       alert("تم حفظ إعدادات تاب بنجاح");
     } catch (error: any) {
       console.error("Tap save error:", error);
@@ -882,9 +918,27 @@ const Settings: React.FC = () => {
                           isConnected: false,
                         }))
                       }
-                      placeholder="sk_live_xxxxx..."
+                      placeholder={
+                        tapSaved.hasSecretKey
+                          ? tapSaved.secretKeyMasked
+                          : "sk_live_xxxxx..."
+                      }
                       dir="ltr"
                     />
+                    {tapSaved.hasSecretKey && (
+                      <small
+                        style={{
+                          display: "block",
+                          marginTop: "6px",
+                          color: "var(--success)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        ✓ مفتاح محفوظ ({tapSaved.isLive ? "Live" : "Test"}) —
+                        اتركه فارغاً للإبقاء عليه، أو اكتب مفتاحاً جديداً
+                        لاستبداله
+                      </small>
+                    )}
                   </div>
                   <div className="tabby-actions">
                     <button

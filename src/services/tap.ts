@@ -99,6 +99,30 @@ export async function saveTapSettings(
 }
 
 /**
+ * الإعدادات المحفوظة كما يعيدها الخادم (السر مُقنّع)
+ */
+export interface TapSavedSettings {
+  exists: boolean;
+  publicKey: string;
+  hasSecretKey: boolean;
+  secretKeyMasked: string;
+  isLive?: boolean;
+  updatedAt?: string | null;
+}
+
+/**
+ * جلب إعدادات تاب المحفوظة (للأدمن) — لتعبئة النموذج عند فتح الصفحة
+ */
+export async function getTapSettings(): Promise<TapSavedSettings> {
+  const getSettings = httpsCallable<void, TapSavedSettings>(
+    functions,
+    "tapGetSettings"
+  );
+  const result = await getSettings();
+  return result.data;
+}
+
+/**
  * اختبار الاتصال بتاب (للأدمن)
  */
 export async function testTapConnection(

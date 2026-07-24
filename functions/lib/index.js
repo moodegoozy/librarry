@@ -33,8 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tapTestConnection = exports.tapSaveSettings = exports.tapWebhook = exports.tapGetChargeStatus = exports.tapCreateCharge = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetBalance = exports.yakkyofyGetTracking = exports.yakkyofyListOrders = exports.yakkyofyGetCategories = exports.yakkyofyGetProductVariants = exports.yakkyofyGetProductDetail = exports.yakkyofySearchProducts = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = exports.wooSetEnabled = exports.wooGetKeysStatus = exports.wooGenerateKeys = exports.wcApi = void 0;
-exports.scrapeProductFromUrl = void 0;
+exports.tapGetSettings = exports.tapSaveSettings = exports.tapWebhook = exports.tapGetChargeStatus = exports.tapCreateCharge = exports.tabbyTestConnection = exports.tabbySaveSettings = exports.tabbyGetPaymentStatus = exports.tabbyCapturePayment = exports.tabbyCreateCheckout = exports.tamaraTestConnection = exports.tamaraSaveSettings = exports.tamaraAuthorizeOrder = exports.tamaraGetPaymentStatus = exports.tamaraCreateCheckout = exports.paypalGetOrderStatus = exports.paypalCaptureOrder = exports.paypalCreateOrder = exports.cjImageProxy = exports.yakkyofySyncOrderStatuses = exports.yakkyofyGetBalance = exports.yakkyofyGetTracking = exports.yakkyofyListOrders = exports.yakkyofyGetCategories = exports.yakkyofyGetProductVariants = exports.yakkyofyGetProductDetail = exports.yakkyofySearchProducts = exports.yakkyofyGetOrder = exports.yakkyofyCreateOrder = exports.yakkyofySaveSettings = exports.yakkyofyTestConnection = exports.cjSyncOrderStatuses = exports.onOrderUpdated = exports.onOrderCreated = exports.cjGetBalance = exports.cjCalculateFreight = exports.cjGetTracking = exports.cjListOrders = exports.cjConfirmOrder = exports.cjCreateOrder = exports.cjGetCategories = exports.cjGetProductInventory = exports.cjGetProductVariants = exports.cjGetProductDetail = exports.cjSearchProducts = exports.cjTestConnection = exports.wooSetEnabled = exports.wooGetKeysStatus = exports.wooGenerateKeys = exports.wcApi = void 0;
+exports.scrapeProductFromUrl = exports.tapTestConnection = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const cj = __importStar(require("./cjClient"));
@@ -1444,21 +1444,64 @@ exports.tapSaveSettings = functions.https.onCall(async (data, context) => {
     var _a;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
     const { publicKey, secretKey } = data;
-    if (!secretKey) {
-        throw new functions.https.HttpsError("invalid-argument", "المفتاح السري مطلوب");
-    }
     try {
-        await admin.firestore().doc("settings/tap").set({
-            publicKey: publicKey || "",
-            secretKey,
+        const ref = admin.firestore().doc("settings/tap");
+        const existing = (await ref.get()).data() || {};
+        // يسمح بتحديث المفتاح العام دون إعادة كتابة السري في كل مرة
+        const finalSecret = secretKey || existing.secretKey;
+        if (!finalSecret) {
+            throw new functions.https.HttpsError("invalid-argument", "المفتاح السري مطلوب");
+        }
+        await ref.set({
+            publicKey: publicKey || existing.publicKey || "",
+            secretKey: finalSecret,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedBy: context.auth.uid,
         });
         return { success: true, message: "تم حفظ إعدادات Tap بنجاح" };
     }
     catch (error) {
+        if (error instanceof functions.https.HttpsError)
+            throw error;
         console.error("Tap save settings error:", error);
         const msg = error instanceof Error ? error.message : "خطأ في حفظ الإعدادات";
+        throw new functions.https.HttpsError("internal", msg);
+    }
+});
+// ==================== Tap - جلب الإعدادات المحفوظة ====================
+// يُرجع المفتاح العام كاملاً والسري **مُقنّعاً** — لا نعيد إرسال السر للمتصفح
+exports.tapGetSettings = functions.https.onCall(async (_data, context) => {
+    var _a, _b, _c, _d;
+    await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
+    try {
+        const snap = await admin.firestore().doc("settings/tap").get();
+        if (!snap.exists) {
+            return { exists: false, publicKey: "", hasSecretKey: false, secretKeyMasked: "" };
+        }
+        const d = snap.data() || {};
+        const secret = d.secretKey || "";
+        const maskSecret = (k) => {
+            if (!k)
+                return "";
+            const prefix = k.startsWith("sk_live_")
+                ? "sk_live_"
+                : k.startsWith("sk_test_")
+                    ? "sk_test_"
+                    : "";
+            return `${prefix}••••••••${k.slice(-4)}`;
+        };
+        return {
+            exists: true,
+            publicKey: d.publicKey || "",
+            hasSecretKey: !!secret,
+            secretKeyMasked: maskSecret(secret),
+            isLive: secret.startsWith("sk_live_"),
+            updatedAt: ((_d = (_c = (_b = d.updatedAt) === null || _b === void 0 ? void 0 : _b.toDate) === null || _c === void 0 ? void 0 : _c.call(_b)) === null || _d === void 0 ? void 0 : _d.toISOString()) || null,
+        };
+    }
+    catch (error) {
+        console.error("Tap get settings error:", error);
+        const msg = error instanceof Error ? error.message : "خطأ في جلب الإعدادات";
         throw new functions.https.HttpsError("internal", msg);
     }
 });
@@ -1467,11 +1510,19 @@ exports.tapTestConnection = functions.https.onCall(async (data, context) => {
     var _a;
     await verifyAdmin((_a = context.auth) !== null && _a !== void 0 ? _a : undefined);
     const { publicKey, secretKey } = data;
-    if (!secretKey) {
+    // إن لم يُرسل مفتاح، نختبر المفتاح المحفوظ مسبقاً
+    let testSecret = secretKey;
+    let testPublic = publicKey;
+    if (!testSecret) {
+        const saved = (await admin.firestore().doc("settings/tap").get()).data();
+        testSecret = saved === null || saved === void 0 ? void 0 : saved.secretKey;
+        testPublic = testPublic || (saved === null || saved === void 0 ? void 0 : saved.publicKey);
+    }
+    if (!testSecret) {
         throw new functions.https.HttpsError("invalid-argument", "المفتاح السري مطلوب للاختبار");
     }
     try {
-        tap.setApiKeys(secretKey, publicKey || "");
+        tap.setApiKeys(testSecret, testPublic || "");
         await tap.testConnection();
         return {
             success: true,
