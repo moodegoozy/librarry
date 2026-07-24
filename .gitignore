@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.production
 
+# Firebase local deploy cache (regenerated on every deploy)
+.firebase/
+
 # Claude Code local settings
 .claude/
 
