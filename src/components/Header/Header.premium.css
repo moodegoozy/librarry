@@ -1,0 +1,189 @@
+/* ============================================================
+   ✦ الطبقة الفاخرة — الهيدر
+   ============================================================ */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 1px 0 rgba(12, 35, 64, 0.04), 0 6px 24px rgba(12, 35, 64, 0.05);
+}
+
+/* الشريط العلوي: كحلي عميق */
+.header-top {
+  background: var(--grad-navy-deep);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.header-top a {
+  transition: color var(--dur) var(--ease-out-soft);
+}
+
+.header-top a:hover {
+  color: var(--secondary);
+}
+
+.header-promo {
+  font-weight: 700;
+  color: #ffc79a;
+}
+
+/* الشريط الرئيسي: زجاجي */
+.header-main {
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* — الشعار — */
+.logo {
+  transition: transform var(--dur) var(--ease-out-back);
+}
+
+.logo:hover {
+  transform: translateY(-2px);
+}
+
+.logo-text {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(120deg, var(--primary), #1e5aa8 60%, var(--secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.logo-sub {
+  letter-spacing: 0.14em;
+  color: var(--gray);
+  font-size: 0.62rem;
+}
+
+/* — شريط البحث — */
+.search-bar {
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--border);
+  background: #f6f8fb;
+  transition:
+    border-color var(--dur) var(--ease-out-soft),
+    box-shadow var(--dur) var(--ease-out-soft),
+    background var(--dur) var(--ease-out-soft);
+}
+
+.search-bar:focus-within {
+  background: #fff;
+  border-color: rgba(255, 107, 26, 0.55);
+  box-shadow: 0 0 0 4px rgba(255, 107, 26, 0.12);
+}
+
+.search-bar input {
+  background: transparent;
+}
+
+.search-bar button {
+  border-radius: var(--r-pill);
+  transition:
+    transform var(--dur) var(--ease-out-back),
+    box-shadow var(--dur) var(--ease-out-soft);
+}
+
+.search-bar button:hover {
+  transform: scale(1.05);
+  box-shadow: var(--glow-accent);
+}
+
+/* — أزرار الإجراءات — */
+.action-btn {
+  border-radius: 14px;
+  transition:
+    background var(--dur) var(--ease-out-soft),
+    color var(--dur) var(--ease-out-soft),
+    transform var(--dur) var(--ease-out-back);
+}
+
+.action-btn:hover {
+  background: rgba(255, 107, 26, 0.1);
+  color: var(--secondary);
+  transform: translateY(-2px);
+}
+
+/* عدّاد السلة النابض */
+.cart-count {
+  background: var(--grad-accent-text);
+  box-shadow: 0 3px 10px rgba(255, 107, 26, 0.5);
+  font-weight: 800;
+  animation: cartPop 0.4s var(--ease-out-back);
+}
+
+@keyframes cartPop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* — التنقّل — */
+.nav {
+  background: #fff;
+  border-top: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.nav-link {
+  position: relative;
+  font-weight: 600;
+  transition: color var(--dur) var(--ease-out-soft);
+}
+
+/* خط سفلي متدرّج ينمو من المنتصف */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 0;
+  height: 2.5px;
+  border-radius: var(--r-pill);
+  background: var(--grad-accent-text);
+  transform: translateX(-50%);
+  transition: width var(--dur) var(--ease-out-soft);
+}
+
+.nav-link:hover {
+  color: var(--secondary);
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 62%;
+}
+
+/* — القائمة المنسدلة — */
+.dropdown-menu {
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--el-3);
+  overflow: hidden;
+}
+
+.dropdown-menu a {
+  transition:
+    background var(--dur) var(--ease-out-soft),
+    padding var(--dur) var(--ease-out-soft),
+    color var(--dur) var(--ease-out-soft);
+}
+
+.dropdown-menu a:hover {
+  background: rgba(255, 107, 26, 0.08);
+  color: var(--secondary);
+  padding-right: 26px;
+}

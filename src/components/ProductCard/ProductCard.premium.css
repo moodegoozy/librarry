@@ -1,0 +1,203 @@
+/* ============================================================
+   ✦ الطبقة الفاخرة — بطاقة المنتج
+   ============================================================ */
+
+.product-card {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--el-1);
+  isolation: isolate;
+  transition:
+    transform var(--dur) var(--ease-out-soft),
+    box-shadow var(--dur) var(--ease-out-soft),
+    border-color var(--dur) var(--ease-out-soft);
+}
+
+/* حدّ متدرّج رفيع يظهر عند التمرير */
+.product-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    155deg,
+    rgba(255, 107, 26, 0.65),
+    rgba(18, 58, 107, 0.16) 45%,
+    transparent 72%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out-soft);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.product-card:hover {
+  transform: translateY(-9px);
+  border-color: transparent;
+  box-shadow: var(--el-4);
+}
+
+.product-card:hover::after {
+  opacity: 1;
+}
+
+/* — الصورة — */
+.product-image {
+  background: linear-gradient(150deg, #f1f5f9, #e6ecf3);
+}
+
+.product-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(12, 35, 64, 0.16),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out-soft);
+  pointer-events: none;
+}
+
+.product-card:hover .product-image::after {
+  opacity: 1;
+}
+
+.product-card:hover .product-image img {
+  transform: scale(1.07);
+}
+
+.product-image img {
+  transition: transform 0.75s var(--ease-out-soft);
+}
+
+/* — الشارات — */
+.badge-discount,
+.badge-featured,
+.badge-soldout {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.badge-discount {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.badge-featured {
+  background: var(--grad-accent-text);
+}
+
+.badge-soldout {
+  background: rgba(71, 85, 105, 0.92);
+}
+
+/* — أزرار الإجراء السريع — */
+.product-actions {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition:
+    opacity var(--dur) var(--ease-out-soft),
+    transform var(--dur) var(--ease-out-soft);
+}
+
+.product-card:hover .product-actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.product-actions button {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--el-2);
+  transition:
+    transform var(--dur) var(--ease-out-back),
+    background var(--dur) var(--ease-out-soft),
+    color var(--dur) var(--ease-out-soft);
+}
+
+.product-actions button:hover {
+  transform: scale(1.12);
+  background: var(--grad-accent-text);
+  color: #fff;
+}
+
+/* على الشاشات اللمسية أظهر الأزرار دائماً */
+@media (hover: none) {
+  .product-actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* — المحتوى — */
+.product-card .product-info,
+.product-card .product-content {
+  padding: 20px;
+}
+
+.product-card h3,
+.product-card .product-name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: color var(--dur) var(--ease-out-soft);
+}
+
+.product-card:hover h3,
+.product-card:hover .product-name {
+  color: var(--secondary);
+}
+
+/* — السعر — */
+.product-card .price,
+.product-card .product-price {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--primary);
+}
+
+/* — زر الإضافة للسلة — */
+.product-card .add-to-cart,
+.product-card .btn-add-cart {
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--dur) var(--ease-out-soft),
+    box-shadow var(--dur) var(--ease-out-soft);
+}
+
+.product-card .add-to-cart::after,
+.product-card .btn-add-cart::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--grad-sheen);
+  transform: translateX(-130%);
+  transition: transform 0.8s var(--ease-out-soft);
+  z-index: -1;
+}
+
+.product-card .add-to-cart:hover,
+.product-card .btn-add-cart:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-accent);
+}
+
+.product-card .add-to-cart:hover::after,
+.product-card .btn-add-cart:hover::after {
+  transform: translateX(130%);
+}

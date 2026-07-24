@@ -1,0 +1,460 @@
+/* ============================================================
+   ✦ نظام التصميم الفاخر — جبوري للإلكترونيات
+   طبقة فوق globals.css: رموز مصقولة + حركة + عناصر زجاجية
+   ============================================================ */
+
+:root {
+  /* — منحنيات الحركة — */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 0.18s;
+  --dur: 0.32s;
+  --dur-slow: 0.6s;
+
+  /* — أنصاف الأقطار — */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+  --r-pill: 999px;
+
+  /* — ظلال متعددة الطبقات (عمق حقيقي) — */
+  --el-1: 0 1px 2px rgba(12, 35, 64, 0.06), 0 2px 6px rgba(12, 35, 64, 0.05);
+  --el-2: 0 2px 4px rgba(12, 35, 64, 0.06), 0 8px 20px rgba(12, 35, 64, 0.08);
+  --el-3: 0 4px 8px rgba(12, 35, 64, 0.07), 0 16px 36px rgba(12, 35, 64, 0.11);
+  --el-4: 0 8px 16px rgba(12, 35, 64, 0.09), 0 28px 60px rgba(12, 35, 64, 0.16);
+
+  /* — توهّج برتقالي — */
+  --glow-accent: 0 0 0 1px rgba(255, 107, 26, 0.25),
+    0 8px 30px rgba(255, 107, 26, 0.35);
+  --glow-accent-strong: 0 0 0 1px rgba(255, 107, 26, 0.4),
+    0 10px 40px rgba(255, 107, 26, 0.5), 0 0 60px rgba(255, 107, 26, 0.2);
+
+  /* — زجاج — */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-brd: rgba(255, 255, 255, 0.6);
+  --glass-blur: saturate(180%) blur(18px);
+
+  /* — زجاج داكن (على الكحلي) — */
+  --glass-dark-bg: rgba(255, 255, 255, 0.06);
+  --glass-dark-brd: rgba(255, 255, 255, 0.12);
+
+  /* — تدرّجات مصقولة — */
+  --grad-accent-text: linear-gradient(100deg, #ff8a3c 0%, #ff6b1a 55%, #ffb020 100%);
+  --grad-navy-deep: linear-gradient(160deg, #123a6b 0%, #0c2340 45%, #06132b 100%);
+  --grad-sheen: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 80%
+  );
+}
+
+/* ============================================================
+   ✦ ظهور تدريجي عند التمرير
+   ============================================================ */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s var(--ease-out-soft),
+    transform 0.7s var(--ease-out-soft);
+  will-change: opacity, transform;
+}
+
+[data-reveal="right"] {
+  transform: translateX(34px);
+}
+[data-reveal="left"] {
+  transform: translateX(-34px);
+}
+[data-reveal="zoom"] {
+  transform: scale(0.94);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* تتابع العناصر داخل شبكة */
+[data-reveal-stagger] > * {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.65s var(--ease-out-soft),
+    transform 0.65s var(--ease-out-soft);
+}
+[data-reveal-stagger].is-revealed > * {
+  opacity: 1;
+  transform: none;
+}
+[data-reveal-stagger].is-revealed > *:nth-child(1) { transition-delay: 0.05s; }
+[data-reveal-stagger].is-revealed > *:nth-child(2) { transition-delay: 0.11s; }
+[data-reveal-stagger].is-revealed > *:nth-child(3) { transition-delay: 0.17s; }
+[data-reveal-stagger].is-revealed > *:nth-child(4) { transition-delay: 0.23s; }
+[data-reveal-stagger].is-revealed > *:nth-child(5) { transition-delay: 0.29s; }
+[data-reveal-stagger].is-revealed > *:nth-child(6) { transition-delay: 0.35s; }
+[data-reveal-stagger].is-revealed > *:nth-child(7) { transition-delay: 0.41s; }
+[data-reveal-stagger].is-revealed > *:nth-child(8) { transition-delay: 0.47s; }
+[data-reveal-stagger].is-revealed > *:nth-child(n + 9) { transition-delay: 0.5s; }
+
+/* ============================================================
+   ✦ نص متدرّج
+   ============================================================ */
+.grad-text {
+  background: var(--grad-accent-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ============================================================
+   ✦ عنوان قسم فاخر
+   ============================================================ */
+.lux-heading {
+  position: relative;
+  display: inline-block;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.lux-heading::after {
+  content: "";
+  position: absolute;
+  bottom: -12px;
+  right: 0;
+  width: 56px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--grad-accent-text);
+  box-shadow: 0 2px 12px rgba(255, 107, 26, 0.5);
+  transition: width var(--dur-slow) var(--ease-out-soft);
+}
+
+.lux-heading:hover::after {
+  width: 96px;
+}
+
+/* شارة صغيرة أنيقة */
+.lux-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--secondary);
+  background: rgba(255, 107, 26, 0.1);
+  border: 1px solid rgba(255, 107, 26, 0.22);
+}
+
+/* ============================================================
+   ✦ بطاقة زجاجية
+   ============================================================ */
+.lux-glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--r-lg);
+  box-shadow: var(--el-2);
+}
+
+/* بطاقة بحدّ متدرّج رفيع */
+.lux-card {
+  position: relative;
+  background: #fff;
+  border-radius: var(--r-lg);
+  box-shadow: var(--el-2);
+  transition:
+    transform var(--dur) var(--ease-out-soft),
+    box-shadow var(--dur) var(--ease-out-soft);
+}
+
+.lux-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    150deg,
+    rgba(255, 107, 26, 0.5),
+    rgba(18, 58, 107, 0.14) 40%,
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out-soft);
+  pointer-events: none;
+}
+
+.lux-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--el-4);
+}
+
+.lux-card:hover::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   ✦ لمعة تمرّ فوق العنصر (sheen)
+   ============================================================ */
+.lux-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.lux-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--grad-sheen);
+  transform: translateX(-130%);
+  transition: transform 0.85s var(--ease-out-soft);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lux-sheen:hover::after {
+  transform: translateX(130%);
+}
+
+/* ============================================================
+   ✦ أزرار فاخرة
+   ============================================================ */
+.btn-lux {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 32px;
+  border: none;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--grad-accent-text);
+  background-size: 200% 100%;
+  box-shadow: var(--glow-accent);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--dur) var(--ease-out-soft),
+    box-shadow var(--dur) var(--ease-out-soft),
+    background-position var(--dur-slow) var(--ease-out-soft);
+}
+
+.btn-lux::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--grad-sheen);
+  transform: translateX(-130%);
+  transition: transform 0.8s var(--ease-out-soft);
+  z-index: -1;
+}
+
+.btn-lux:hover {
+  transform: translateY(-3px);
+  background-position: 100% 0;
+  box-shadow: var(--glow-accent-strong);
+}
+
+.btn-lux:hover::after {
+  transform: translateX(130%);
+}
+
+.btn-lux:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+/* زر ثانوي شبح */
+.btn-lux-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 30px;
+  border-radius: var(--r-pill);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--glass-dark-bg);
+  border: 1px solid var(--glass-dark-brd);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-out-soft),
+    background var(--dur) var(--ease-out-soft),
+    border-color var(--dur) var(--ease-out-soft);
+}
+
+.btn-lux-ghost:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 107, 26, 0.55);
+}
+
+/* ============================================================
+   ✦ هالات ضوئية متحركة (خلفية حيّة)
+   ============================================================ */
+.lux-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lux-aurora span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  animation: auroraFloat 18s var(--ease-in-out-smooth) infinite;
+}
+
+.lux-aurora span:nth-child(1) {
+  width: 480px;
+  height: 480px;
+  top: -160px;
+  right: -120px;
+  background: radial-gradient(circle, rgba(255, 107, 26, 0.55), transparent 68%);
+}
+
+.lux-aurora span:nth-child(2) {
+  width: 420px;
+  height: 420px;
+  bottom: -170px;
+  left: -110px;
+  background: radial-gradient(circle, rgba(56, 130, 220, 0.5), transparent 68%);
+  animation-delay: -6s;
+  animation-duration: 22s;
+}
+
+.lux-aurora span:nth-child(3) {
+  width: 320px;
+  height: 320px;
+  top: 42%;
+  left: 45%;
+  background: radial-gradient(circle, rgba(255, 176, 32, 0.32), transparent 70%);
+  animation-delay: -12s;
+  animation-duration: 26s;
+}
+
+@keyframes auroraFloat {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(38px, -46px) scale(1.14);
+  }
+  66% {
+    transform: translate(-30px, 34px) scale(0.9);
+  }
+}
+
+/* ============================================================
+   ✦ هيكل تحميل بلمعة (shimmer skeleton)
+   ============================================================ */
+.lux-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e8edf3;
+  border-radius: var(--r-md);
+}
+
+.lux-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.75),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ============================================================
+   ✦ تحسين إمكانية الوصول — حلقة تركيز واضحة
+   ============================================================ */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(255, 107, 26, 0.55);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ============================================================
+   ✦ شريط تمرير مصقول
+   ============================================================ */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #123a6b, #0c2340);
+  border-radius: var(--r-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--grad-accent-text);
+}
+
+/* تحديد النص */
+::selection {
+  background: rgba(255, 107, 26, 0.28);
+  color: var(--dark);
+}
+
+/* ============================================================
+   ✦ احترام تفضيل تقليل الحركة
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal-stagger] > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .lux-aurora span,
+  .lux-skeleton::after {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

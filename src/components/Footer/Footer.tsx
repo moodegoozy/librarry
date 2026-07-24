@@ -14,6 +14,7 @@ import {
   Headphones,
 } from "lucide-react";
 import "./Footer.css";
+import "./Footer.premium.css";
 
 const Footer: React.FC = () => {
   return (

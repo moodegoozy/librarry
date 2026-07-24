@@ -81,7 +81,7 @@ const Products: React.FC = () => {
     <div className="products-page">
       <div className="container">
         {/* Page Header */}
-        <div className="page-header">
+        <div className="page-header" data-reveal>
           <h1>{getPageTitle()}</h1>
           <p>{filteredProducts.length} منتج</p>
         </div>

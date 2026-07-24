@@ -41,7 +41,7 @@ const About: React.FC = () => {
       <section className="about-features">
         <div className="container">
           <h2>لماذا تختار جبوري؟</h2>
-          <div className="features-grid">
+          <div className="features-grid" data-reveal-stagger>
             <div className="feature-card">
               <div className="feature-icon">
                 <Shield size={32} />

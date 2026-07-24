@@ -4,6 +4,7 @@ import { ShoppingCart, Heart, Eye, Star } from "lucide-react";
 import type { Product } from "../../types";
 import { useStore } from "../../store/useStore";
 import "./ProductCard.css";
+import "./ProductCard.premium.css";
 
 interface ProductCardProps {
   product: Product;

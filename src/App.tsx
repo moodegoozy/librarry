@@ -139,8 +139,13 @@ const M5aznSettings = lazyWithRetry(
   "M5aznSettings",
 );
 
+// Hooks
+import useScrollReveal from "./hooks/useScrollReveal";
+
 // Styles
 import "./styles/globals.css";
+import "./styles/premium.css";
+import "./styles/pages-premium.css";
 
 // Loading Spinner Component
 const PageLoader: React.FC = () => (
@@ -182,6 +187,9 @@ const StoreLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const App: React.FC = () => {
   const { setUser, setProducts, setCategories } = useStore();
   const [loading, setLoading] = useState(true);
+
+  // محرّك الظهور التدريجي عند التمرير (يعمل لكل الصفحات تلقائياً)
+  useScrollReveal();
 
   // الاشتراك المركزي في المنتجات والتصنيفات
   useEffect(() => {

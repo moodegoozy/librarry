@@ -53,7 +53,7 @@ const Contact: React.FC = () => {
           <p>نحن هنا لمساعدتك! تواصل معنا وسنرد عليك في أقرب وقت</p>
         </div>
 
-        <div className="contact-grid">
+        <div className="contact-grid" data-reveal-stagger>
           {/* Contact Info */}
           <div className="contact-info">
             <div className="info-card">

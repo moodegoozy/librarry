@@ -13,6 +13,7 @@ import {
 import { useStore } from "../../store/useStore";
 import logoImage from "../../assets/logo.jpeg";
 import "./Header.css";
+import "./Header.premium.css";
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

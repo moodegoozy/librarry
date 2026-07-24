@@ -83,7 +83,7 @@ const Cart: React.FC = () => {
 
         <div className="cart-content">
           {/* Cart Items */}
-          <div className="cart-items">
+          <div className="cart-items" data-reveal-stagger>
             {cart.map((item, index) => (
               <div key={`${item.product.id}-${index}`} className="cart-item">
                 <img
@@ -166,7 +166,7 @@ const Cart: React.FC = () => {
           </div>
 
           {/* Cart Summary */}
-          <div className="cart-summary">
+          <div className="cart-summary" data-reveal="left">
             <h3>ملخص الطلب</h3>
 
             <div className="summary-row">

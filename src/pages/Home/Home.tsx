@@ -10,11 +10,16 @@ import {
   Watch,
   Inbox,
   Package,
+  Sparkles,
+  Truck,
+  ShieldCheck,
+  CreditCard,
 } from "lucide-react";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import CircuitBackground from "../../components/CircuitBackground/CircuitBackground";
 import { useStore } from "../../store/useStore";
 import "./Home.css";
+import "./Home.premium.css";
 
 // خريطة الأيقونات حسب التصنيف
 const iconMap: Record<string, React.ElementType> = {
@@ -46,32 +51,52 @@ const Home: React.FC = () => {
       {/* Hero Section */}
       <section className="hero">
         <CircuitBackground />
+        <div className="lux-aurora" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
         <div className="container">
           <div className="hero-content">
             <div className="hero-text">
-              <span className="hero-badge">🔥 عروض حصرية</span>
-              <h1>
+              <span className="hero-badge" data-reveal>
+                <Sparkles size={15} /> عروض حصرية لفترة محدودة
+              </span>
+              <h1 data-reveal>
                 أحدث الإلكترونيات
                 <br />
-                بأفضل الأسعار
+                <span className="grad-text">بأفضل الأسعار</span>
               </h1>
-              <p>
+              <p data-reveal>
                 اكتشف تشكيلتنا الواسعة من الهواتف والأجهزة الذكية واللابتوبات مع
                 ضمان شامل وشحن مجاني
               </p>
-              <div className="hero-buttons">
-                <Link to="/products" className="btn btn-primary btn-lg">
-                  تسوق الآن
+              <div className="hero-buttons" data-reveal>
+                <Link to="/products" className="btn-lux">
+                  تسوق الآن <ChevronLeft size={18} />
                 </Link>
-                <Link
-                  to="/products?featured=true"
-                  className="btn btn-outline btn-lg"
-                >
+                <Link to="/products?featured=true" className="btn-lux-ghost">
                   عروض اليوم
                 </Link>
               </div>
+
+              <div className="hero-stats" data-reveal-stagger>
+                <div className="hero-stat">
+                  <strong>+٥٠٠</strong>
+                  <span>منتج أصلي</span>
+                </div>
+                <div className="hero-stat">
+                  <strong>شحن مجاني</strong>
+                  <span>لكل الطلبات</span>
+                </div>
+                <div className="hero-stat">
+                  <strong>ضمان شامل</strong>
+                  <span>على كل جهاز</span>
+                </div>
+              </div>
             </div>
-            <div className="hero-image">
+            <div className="hero-image" data-reveal="zoom">
+              <div className="hero-image-glow" aria-hidden="true" />
               <img
                 src="https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=600"
                 alt="Electronics"
@@ -81,16 +106,52 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* شريط الثقة */}
+      <section className="trust-strip">
+        <div className="container">
+          <div className="trust-grid" data-reveal-stagger>
+            <div className="trust-item">
+              <Truck size={26} />
+              <div>
+                <strong>شحن سريع مجاني</strong>
+                <span>توصيل لجميع مدن المملكة</span>
+              </div>
+            </div>
+            <div className="trust-item">
+              <ShieldCheck size={26} />
+              <div>
+                <strong>ضمان أصلي</strong>
+                <span>منتجات موثوقة ١٠٠٪</span>
+              </div>
+            </div>
+            <div className="trust-item">
+              <CreditCard size={26} />
+              <div>
+                <strong>دفع آمن</strong>
+                <span>مدى، فيزا، أبل باي وتقسيط</span>
+              </div>
+            </div>
+            <div className="trust-item">
+              <Headphones size={26} />
+              <div>
+                <strong>دعم فني</strong>
+                <span>نجيبك في أي وقت</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Categories Section */}
       <section className="categories-section">
         <div className="container">
-          <div className="section-header">
-            <h2>تسوق حسب التصنيف</h2>
+          <div className="section-header" data-reveal>
+            <h2 className="lux-heading">تسوق حسب التصنيف</h2>
             <Link to="/products" className="view-all">
               عرض الكل <ChevronLeft size={18} />
             </Link>
           </div>
-          <div className="categories-grid">
+          <div className="categories-grid" data-reveal-stagger>
             {categories.length > 0 ? (
               categories.map((cat) => {
                 const IconComponent = iconMap[cat.icon] || Package;
@@ -127,14 +188,14 @@ const Home: React.FC = () => {
       {/* Featured Products */}
       <section className="products-section">
         <div className="container">
-          <div className="section-header">
-            <h2>منتجات مميزة</h2>
+          <div className="section-header" data-reveal>
+            <h2 className="lux-heading">منتجات مميزة</h2>
             <Link to="/products?featured=true" className="view-all">
               عرض الكل <ChevronLeft size={18} />
             </Link>
           </div>
           {featuredProducts.length > 0 ? (
-            <div className="products-grid">
+            <div className="products-grid" data-reveal-stagger>
               {featuredProducts.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -153,18 +214,21 @@ const Home: React.FC = () => {
       <section className="promo-banner">
         <div className="container">
           <div className="banner-content">
-            <div className="banner-text">
-              <span>خصم يصل إلى 30%</span>
+            <div className="lux-aurora" aria-hidden="true">
+              <span />
+              <span />
+            </div>
+            <div className="banner-text" data-reveal="right">
+              <span className="lux-eyebrow">
+                <Sparkles size={14} /> خصم يصل إلى ٣٠٪
+              </span>
               <h2>عروض نهاية العام</h2>
               <p>لا تفوت فرصة الحصول على أفضل المنتجات بأسعار مخفضة</p>
-              <Link
-                to="/products?sale=true"
-                className="btn btn-secondary btn-lg"
-              >
-                تسوق العروض
+              <Link to="/products?sale=true" className="btn-lux">
+                تسوق العروض <ChevronLeft size={18} />
               </Link>
             </div>
-            <div className="banner-image">
+            <div className="banner-image" data-reveal="left">
               <img
                 src="https://images.unsplash.com/photo-1491933382434-500287f9b54b?w=500"
                 alt="Sale"
@@ -177,14 +241,14 @@ const Home: React.FC = () => {
       {/* All Products */}
       <section className="products-section">
         <div className="container">
-          <div className="section-header">
-            <h2>أحدث المنتجات</h2>
+          <div className="section-header" data-reveal>
+            <h2 className="lux-heading">أحدث المنتجات</h2>
             <Link to="/products" className="view-all">
               عرض الكل <ChevronLeft size={18} />
             </Link>
           </div>
           {products.length > 0 ? (
-            <div className="products-grid">
+            <div className="products-grid" data-reveal-stagger>
               {products.slice(0, 8).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
